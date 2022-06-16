@@ -3,7 +3,6 @@
 
 # In[1]:
 
-
 import qutip
 import numpy
 import scipy.optimize as opt 
@@ -115,33 +114,9 @@ id2 = qutip.qeye(2)
 sx = .5*qutip.sigmax()
 sy = .5*qutip.sigmay()
 sz = .5*qutip.sigmaz()
+globalid = qutip.tensor([qutip.qeye(2) for k in range(N)])
+
 
 sx_list = []
 sy_list = []
 sz_list = []
-
-for n in range(N):
-    operator_list = []
-    for m in range(N):
-        operator_list.append(id2)
-    operator_list[n] = sx
-    sx_list.append(qutip.tensor(operator_list))
-        
-    operator_list[n] = sy
-    sy_list.append(qutip.tensor(operator_list))
-        
-    operator_list[n] = sz
-    sz_list.append(qutip.tensor(operator_list))
-
-
-# In[ ]:
-
-
-def spin_dephasing(gamma):
-  c_op_list = []
-  collapse_weights = gamma * np.ones(N)
-  for n in range(N):
-        if collapse_weights[n] > 0.0:
-            c_op_list.append(np.sqrt(collapse_weights[n]) * sz_list[n])
-  return c_op_list
-
