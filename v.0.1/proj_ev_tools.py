@@ -4,7 +4,7 @@
 # In[1]:
 
 import qutip
-import numpy
+from numpy import *
 import scipy.optimize as opt 
 import pickle
 
@@ -34,7 +34,7 @@ def base_orth(ops, rho0):
   for i, op in enumerate(ops): 
     alpha = [scalar_prod(op2, op, rho0) for op2 in basis]
     op_mod = op - sum([c*op2 for c, op2, in zip(alpha, basis)])
-    op_norm = np.sqrt(scalar_prod(op_mod,op_mod,rho0))
+    op_norm = sqrt(scalar_prod(op_mod,op_mod,rho0))
     if op_norm<1.e-12:
       continue
     op_mod = op_mod/(op_norm)
@@ -43,7 +43,7 @@ def base_orth(ops, rho0):
 
 def logM(rho):
   eigvals, eigvecs = rho.eigenstates()
-  return sum([np.log(vl)*vc*vc.dag() for vl, vc in zip(eigvals, eigvecs) if vl > 0])
+  return sum([log(vl)*vc*vc.dag() for vl, vc in zip(eigvals, eigvecs) if vl > 0])
 
 def sqrtM(rho):
   eigvals, eigvecs = rho.eigenstates()
@@ -67,7 +67,7 @@ def rel_entropy(rho, sigma):
 def bures(rho, sigma):
     val = abs((sqrtM(rho)*sqrtM(sigma)).tr())
     val = max(min(val,1.),-1.)
-    return np.arccos(val)/np.pi
+    return .arccos(val)/pi
         
 def maxent_rho(rho, basis):   
     def test(x, rho, basis):
@@ -75,7 +75,7 @@ def maxent_rho(rho, basis):
         sigma = (.5*(k+k.dag())).expm()
         sigma = sigma/sigma.tr()
         return rel_entropy(rho, sigma)    
-    res = opt.minimize(test,np.zeros(len(basis)),args=(rho,basis))
+    res = opt.minimize(test,zeros(len(basis)),args=(rho,basis))
     k = sum([-u*b for u,b in zip(res.x, basis)])        
     sigma = (.5*(k+k.dag())).expm()
     sigma = sigma/sigma.tr()
@@ -114,7 +114,6 @@ id2 = qutip.qeye(2)
 sx = .5*qutip.sigmax()
 sy = .5*qutip.sigmay()
 sz = .5*qutip.sigmaz()
-globalid = qutip.tensor([qutip.qeye(2) for k in range(N)])
 
 
 sx_list = []
