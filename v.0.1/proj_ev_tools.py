@@ -15,23 +15,39 @@ sx = .5*qutip.sigmax()
 sy = .5*qutip.sigmay()
 sz = .5*qutip.sigmaz()
 
-def one_body_spin_ops(N):
+def one_body_spin_ops(N = int):
     loc_sx_list = []
     loc_sy_list = []
     loc_sz_list = []
+    loc_global_id = qutip.tensor([qutip.qeye(2) for k in range(N)])
+    loc_globalid_list = []
     for n in range(N):
         operator_list = []
         for m in range(N):
             operator_list.append(id2)
+        loc_globalid_list.append(loc_global_id)
         operator_list[n] = sx
         loc_sx_list.append(qutip.tensor(operator_list))
         operator_list[n] = sy
         loc_sy_list.append(qutip.tensor(operator_list))
         operator_list[n] = sz
-        loc_sz_list.append(qutip.tensor(operator_list))
-    return loc_sx_list, loc_sy_list, loc_sz_list
+        loc_sz_list.append(qutip.tensor(operator_list))        
+    return loc_globalid_list, loc_sx_list, loc_sy_list, loc_sz_list
 
 # In [3]:
+
+def Heisenberg_hamiltonian (N, Jx = list, Jy = list, Jz = list, h = list, sx_list = list, sy_list = list, sz_list = list):
+    H = 0;
+    for n in range(N):
+        H += -0.5*h[n]*sz_list[n]
+        
+    for n in range(N-1):
+        H += -0.5 * Jx[n] * sx_list[n] * sx_list[n+1]
+        H += -0.5 * Jy[n] * sy_list[n] * sy_list[n+1]
+        H += -0.5 * Jz[n] * sz_list[n] * sz_list[n+1]
+    return H
+
+# In [4]:
 
 def free_particle_ops(N, H_H = 1, sz_list=list):
     loc_x_op = sum((.5 - sz_list[a])*(a+1) for a in range(N))
@@ -154,10 +170,10 @@ def spin_dephasing(N, gamma):
 
 # In [8]: 
 
-coeff_matrix = ((1*10**-8 ,1*10**-8 ,1*10**-8 ),
+coeff_matrix = ((1*10**-18 ,1*10**-18 ,1*10**-18 ),
                  (1*10**-8 ,1*10**-8 ,1*10**-8 ),
-                 (1*10**-8 ,1*10**-8 ,1*10**-8 ),
-                 (1*10**-8 ,1*10**-8 ,1*10**-8 ))
+                 (1*10**-14 ,1*10**-14 ,1*10**-14 ),
+                 (1*10**-14 ,1*10**-14 ,1*10**-14 ))
 
 def initial_state_glng(N=3, x = .5, psi0 = None, gaussian = True, sx_list = list, sy_list = list, sz_list = list):
     K1 = 0; K2 = 0; K3 = 0; globalid = qutip.tensor([qutip.qeye(2) for k in range(N)]); loc_rho0=0
