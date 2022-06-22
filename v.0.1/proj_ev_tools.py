@@ -154,10 +154,10 @@ def spin_dephasing(N, gamma):
 
 # In [8]: 
 
-coeff_matrix = 1*10**-2 * ((1,1,1),
-                 (1,1,1),
-                 (1,1,1),
-                 (1,1,1))
+coeff_matrix = ((1*10**-8 ,1*10**-8 ,1*10**-8 ),
+                 (1*10**-8 ,1*10**-8 ,1*10**-8 ),
+                 (1*10**-8 ,1*10**-8 ,1*10**-8 ),
+                 (1*10**-8 ,1*10**-8 ,1*10**-8 ))
 
 def initial_state_glng(N=3, x = .5, psi0 = None, gaussian = True, sx_list = list, sy_list = list, sz_list = list):
     K1 = 0; K2 = 0; K3 = 0; globalid = qutip.tensor([qutip.qeye(2) for k in range(N)]); loc_rho0=0
