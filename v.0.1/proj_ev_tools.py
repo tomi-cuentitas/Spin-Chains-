@@ -116,6 +116,11 @@ def rel_entropy(rho, sigma):
 
 # In[6]:
 
+#def qm_fidelity(rho, sigma):
+#    vals = ((sqrtM(sqrtM(rho)*sqrtM(sigma)*sqrtM(rho))).tr())**2
+#    vals = max(min(val, 1.), -1.
+#    return vals
+
 def bures(rho, sigma):
     val = abs((sqrtM(rho)*sqrtM(sigma)).tr())
     val = max(min(val,1.),-1.)
