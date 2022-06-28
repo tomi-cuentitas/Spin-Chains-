@@ -350,3 +350,13 @@ def initial_state_glng(N=3, x = .5, psi0 = None, gaussian = True, sx_list = list
         loc_rho0 = psi0 * psi0.dag()
         loc_rho0 = x * loc_rho0/loc_rho0.tr() + (1-x) * globalid * .5**N
     return loc_rho0
+
+
+## class one_body_ME():
+##    def __init__(self, K):
+##        self.K = linalg.expm(K)
+##    def __repr__(self):
+##        return self
+
+## rho1 = one_body_ME(A)
+## print(rho1)
