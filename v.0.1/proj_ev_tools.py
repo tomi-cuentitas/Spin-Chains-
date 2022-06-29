@@ -34,11 +34,15 @@ def one_body_spin_ops(N = int):
         loc_sz_list.append(qutip.tensor(operator_list))        
     return loc_globalid_list, loc_sx_list, loc_sy_list, loc_sz_list
 
-# In [3]:
-# updated version
+# In [3]:# updated version, lo pensé como un grafo orientado
 
-def all_two_body_spin_ops(N):
-    sx_list = list; sy_list = list; sz_list = list;
+def all_two_body_spin_ops(N, pauli_vec = list):
+    sx_list = one_body_spin_ops(N)[1];
+    sy_list = one_body_spin_ops(N)[2];
+    sz_list = one_body_spin_ops(N)[3];
+      
+    pauli_vec = [sx_list, sy_list, sz_list];
+        
     sxsa_list = []; sysa_list = []; szsa_list = []; two_body_s = [];
     sxsa_list = [qutip.tensor(sx_list[n], pauli_vec[a][b]) for n in range (N)
                                                            for a in range(len(pauli_vec))
@@ -51,6 +55,7 @@ def all_two_body_spin_ops(N):
                                                            for b in range(len(pauli_vec[a]))]
     two_body_s = [sxsa_list, sysa_list, szsa_list]
     return two_body_s
+
 
 # In [4]:
 
