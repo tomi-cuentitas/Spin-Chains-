@@ -226,7 +226,19 @@ def spin_dephasing(N, gamma):
             loc_c_op_list.append(np.sqrt(collapse_weights[n]) * sz_list[n])
     return loc_c_op_list
 
-# In [11]: legacy
+# In [11]:
+
+def initial_state(N = int, gaussian = True, gr = 1, x = .5, coeffs = list, psi0 = qutip.qobj):
+    loc_globalid = qutip.tensor([qutip.qeye(2) for k in range(N)]) 
+    if gaussian: 
+        rho0 = me.n_body_max_ent_state(gr, N, coeffs)
+    else:
+        rho0 = psi0 * psi0.dag()
+        rho0 = x * rho0 + (1-x)*loc_globalid * x/N
+        rho0 = rho0/rho0.tr()
+    return rho0     
+
+# In [12]: legacy
 
 # coeff_matrix = ((1*10**-18 ,1*10**-18 ,1*10**-18 ),
 #                 (1*10**-8 ,1*10**-8 ,1*10**-8 ),
