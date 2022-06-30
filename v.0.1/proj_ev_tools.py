@@ -238,25 +238,7 @@ def initial_state(N = int, gaussian = True, gr = 1, x = .5, coeffs = list, psi0 
         rho0 = rho0/rho0.tr()
     return rho0     
 
-# In [12]: legacy
-
-# coeff_matrix = ((1*10**-18 ,1*10**-18 ,1*10**-18 ),
-#                 (1*10**-8 ,1*10**-8 ,1*10**-8 ),
-#                 (1*10**-14 ,1*10**-14 ,1*10**-14 ),
-#                (1*10**-14 ,1*10**-14 ,1*10**-14 ))
-
-
-#def initial_state_glng(N=3, x = .5, psi0 = None, gaussian = True, sx_list = list, sy_list = list, sz_list = list):
-#    K1 = 0; K2 = 0; K3 = 0; globalid = qutip.tensor([qutip.qeye(2) for k in range(N)]); loc_rho0=0
-#   if gaussian: 
-#        K1 += sum(coeff_matrix[1][a]*sx_list[a] for a in range(N))
-#        K2 += sum(coeff_matrix[2][a]*sy_list[a] for a in range(N))
-#        K3 += sum(coeff_matrix[3][a]*sz_list[a] for a in range(N))
-#        loc_rho0 = (globalid+K1+K2+K3).expm()
-#    else:
-#        loc_rho0 = psi0 * psi0.dag()
-#        loc_rho0 = x * loc_rho0/loc_rho0.tr() + (1-x) * globalid * .5**N
-#    return loc_rho0
+# In [12]: 
 
 ## class one_body_ME():
 ##    def __init__(self, K):
