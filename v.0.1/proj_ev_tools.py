@@ -81,7 +81,7 @@ def n_body_max_ent_state(gr, N, coeffs = list):
     
     if (gr == 1):
         try:
-            K = sum(coeffs[n][m] *  one_body_spin_ops(N)[n][m] 
+            K += sum(coeffs[n][m] *  one_body_spin_ops(N)[n][m] 
                                     for n in range(len(one_body_spin_ops(N)))
                                     for m in range(len(one_body_spin_ops(N)[n]))
                    ) 
@@ -90,7 +90,7 @@ def n_body_max_ent_state(gr, N, coeffs = list):
             raise ex
     elif (gr == 2): 
         try:
-            K = sum(coeffs[n][m] * all_two_body_spin_ops(N, pauli_vec)[n][m] 
+            K += sum(coeffs[n][m] * all_two_body_spin_ops(N, pauli_vec)[n][m] 
                     for n in range(len(all_two_body_spin_ops(N, pauli_vec)))
                     for m in range(len(all_two_body_spin_ops(N, pauli_vec)[n]))
                    )
@@ -127,8 +127,10 @@ def scalar_prod(op1, op2, rho0 = None):
         return "Incompatible Qobj dimensions"
     if rho0 is None:
         rho0 = qutip.qeye(op1.dims[0])/op1.dims[0][0]
-    result = .5*(rho0*(op1*op2.dag()+op2.dag()*op1)).tr()
+    result = .5*(rho0*(op1.dag()*op2)).tr()
+    #result = .5*(rho0*(op1*op2.dag()+op2.dag()*op1)).tr()
     result = result.real
+    #print(result)
     return result
 
 def base_orth(ops, rho0):
@@ -231,15 +233,14 @@ def spin_dephasing(N, gamma):
 def initial_state(N = int, gaussian = True, gr = 1, x = .5, coeffs = list, psi0 = qutip.qobj):
     loc_globalid = qutip.tensor([qutip.qeye(2) for k in range(N)]) 
     if gaussian: 
-        rho0 = me.n_body_max_ent_state(gr, N, coeffs)
+        rho0 = n_body_max_ent_state(gr, N, coeffs)
     else:
         rho0 = psi0 * psi0.dag()
         rho0 = x * rho0 + (1-x)*loc_globalid * x/N
         rho0 = rho0/rho0.tr()
     return rho0     
 
-# In [12]: 
-
+# In [11]: legacy
 ## class one_body_ME():
 ##    def __init__(self, K):
 ##        self.K = linalg.expm(K)
