@@ -21,6 +21,7 @@ def one_body_spin_ops(N = int):
     loc_sz_list = []
     loc_global_id = qutip.tensor([qutip.qeye(2) for k in range(N)])
     loc_globalid_list = []
+    
     for n in range(N):
         operator_list = []
         for m in range(N):
@@ -28,8 +29,10 @@ def one_body_spin_ops(N = int):
         loc_globalid_list.append(loc_global_id)
         operator_list[n] = sx
         loc_sx_list.append(qutip.tensor(operator_list))
+        
         operator_list[n] = sy
         loc_sy_list.append(qutip.tensor(operator_list))
+        
         operator_list[n] = sz
         loc_sz_list.append(qutip.tensor(operator_list))        
     return loc_globalid_list, loc_sx_list, loc_sy_list, loc_sz_list
@@ -47,12 +50,15 @@ def all_two_body_spin_ops(N, pauli_vec = list):
     sxsa_list = [sx_list[n] * pauli_vec[a][b] for n in range (N)
                                               for a in range(len(pauli_vec))
                                               for b in range(len(pauli_vec[a]))]
+    
     sysa_list = [sy_list[n] * pauli_vec[a][b] for n in range (N)
                                               for a in range(len(pauli_vec))
                                               for b in range(len(pauli_vec[a]))]
+    
     szsa_list = [sz_list[n] * pauli_vec[a][b] for n in range (N)
                                              for a in range(len(pauli_vec))
                                              for b in range(len(pauli_vec[a]))]
+    
     two_body_s = [sxsa_list, sysa_list, szsa_list]
     return two_body_s
 
@@ -61,6 +67,7 @@ def all_two_body_spin_ops(N, pauli_vec = list):
 def Heisenberg_hamiltonian (N, Jx = list, Jy = list, Jz = list, h = list):
     globalid_list, sx_list, sy_list, sz_list = one_body_spin_ops(N)
     H = 0;
+    
     for n in range(N):
         H += -0.5*h[n]*sz_list[n]
         
@@ -84,7 +91,6 @@ def free_particle_ops(N, H_H = 1, sz_list=list):
 
 def n_body_max_ent_state(gr, N, coeffs = list):
     K = 0; 
-    
     sx_list = one_body_spin_ops(N)[1];
     sy_list = one_body_spin_ops(N)[2];
     sz_list = one_body_spin_ops(N)[3];
@@ -131,7 +137,7 @@ def scalar_prod(op1, op2, rho0 = None):
     result = .5*(rho0*(op1.dag()*op2)).tr()
     #result = .5*(rho0*(op1*op2.dag()+op2.dag()*op1)).tr()
     result = result.real
-    #print(result)
+    print(result)
     return result
 
 def base_orth(ops, rho0):
