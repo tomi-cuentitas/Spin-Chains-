@@ -58,7 +58,8 @@ def all_two_body_spin_ops(N, pauli_vec = list):
 
 # In [4]:
 
-def Heisenberg_hamiltonian (N, Jx = list, Jy = list, Jz = list, h = list, sx_list = list, sy_list = list, sz_list = list):
+def Heisenberg_hamiltonian (N, Jx = list, Jy = list, Jz = list, h = list):
+    globalid_list, sx_list, sy_list, sz_list = one_body_spin_ops(N)
     H = 0;
     for n in range(N):
         H += -0.5*h[n]*sz_list[n]
@@ -70,6 +71,16 @@ def Heisenberg_hamiltonian (N, Jx = list, Jy = list, Jz = list, h = list, sx_lis
     return H
 
 # In [5]:
+
+def free_particle_ops(N, H_H = 1, sz_list=list):
+    loc_x_op = sum((.5 + sz_list[a])*(a+1) for a in range(N))
+    loc_p_op = 1j * (loc_x_op*H_H - H_H*loc_x_op)
+    loc_comm_xp = .5*(loc_x_op*loc_p_op + loc_p_op*loc_x_op)
+    loc_corr_xp = -1j*(loc_x_op*loc_p_op - loc_p_op*loc_x_op)
+    loc_p_dot = 1j*(H_H * loc_p_op - loc_p_op * H_H)
+    return loc_x_op, loc_p_op, loc_comm_xp, loc_corr_xp, loc_p_dot
+
+# In [6]:
 
 def n_body_max_ent_state(gr, N, coeffs = list):
     K = 0; 
@@ -100,16 +111,6 @@ def n_body_max_ent_state(gr, N, coeffs = list):
     else:
         print('gr must be either 1 or 2')
     return K.expm()
-
-# In [6]:
-
-def free_particle_ops(N, H_H = 1, sz_list=list):
-    loc_x_op = sum((.5 - sz_list[a])*(a+1) for a in range(N))
-    loc_p_op = 1j * (loc_x_op*H_H - H_H*loc_x_op)
-    loc_comm_xp = .5*(loc_x_op*loc_p_op + loc_p_op*loc_x_op)
-    loc_corr_xp = -1j*(loc_x_op*loc_p_op - loc_p_op*loc_x_op)
-    loc_p_dot = 1j*(H_H * loc_p_op - loc_p_op * H_H)
-    return loc_x_op, loc_p_op, loc_comm_xp, loc_corr_xp, loc_p_dot
 
 # In [7]: 
 
