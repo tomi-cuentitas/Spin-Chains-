@@ -129,15 +129,16 @@ def callback_entropy_VN (t,rhot):
 def prod_basis(b1, b2):
     return [qutip.tensor(b,s) for b in b1 for s in b2]
 
-def scalar_prod(op1, op2, rho0 = None):
+def scalar_prod(op1, op2, rho0 = None, HS_modified = True):
     if op1.dims[0][0]!=op2.dims[0][0]:
         return "Incompatible Qobj dimensions"
     if rho0 is None:
         rho0 = qutip.qeye(op1.dims[0])/op1.dims[0][0]
-    result = .5*(rho0*(op1.dag()*op2)).tr()
-    #result = .5*(rho0*(op1*op2.dag()+op2.dag()*op1)).tr()
+    if (HS_modified):  
+        result = .5*(rho0*(op1*op2.dag()+op2.dag()*op1)).tr()
+    else: 
+        result = .5*(rho0*(op1.dag()*op2)).tr()
     result = result.real
-    print(result)
     return result
 
 def base_orth(ops, rho0):
