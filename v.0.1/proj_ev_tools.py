@@ -39,25 +39,28 @@ def one_body_spin_ops(N = int):
 
 # In [3]:# updated version, lo pensé como un grafo orientado
 
-def all_two_body_spin_ops(N, pauli_vec = list):
-    sx_list = one_body_spin_ops(N)[1];
-    sy_list = one_body_spin_ops(N)[2];
-    sz_list = one_body_spin_ops(N)[3];
+# técnicamente hay 36 operadores en esta lista de listas para N = 2, pero hay muchos repetidos. 
+# Ejemplo: sx^1 * sx^2 = - sx^2 * sx^1 y también sx^2 * sy^1 = sy^1 * sx^2
+def all_two_body_spin_ops(N):
+    loc_global_id_list = one_body_spin_ops(N)[0]
+    sx_list = one_body_spin_ops(N)[1]
+    sy_list = one_body_spin_ops(N)[2]
+    sz_list = one_body_spin_ops(N)[3]
       
-    pauli_vec = [sx_list, sy_list, sz_list];
+    pauli_four_vec = [loc_global_id_list, sx_list, sy_list, sz_list];
         
     sxsa_list = []; sysa_list = []; szsa_list = []; two_body_s = [];
-    sxsa_list = [sx_list[n] * pauli_vec[a][b] for n in range (N)
-                                              for a in range(len(pauli_vec))
-                                              for b in range(len(pauli_vec[a]))]
+    sxsa_list = [sx_list[n] * pauli_four_vec[a][b] for n in range(N)
+                                              for a in range(len(pauli_four_vec))
+                                              for b in range(len(pauli_four_vec[a]))]
     
-    sysa_list = [sy_list[n] * pauli_vec[a][b] for n in range (N)
-                                              for a in range(len(pauli_vec))
-                                              for b in range(len(pauli_vec[a]))]
+    sysa_list = [sy_list[n] * pauli_four_vec[a][b] for n in range(N)
+                                              for a in range(len(pauli_four_vec))
+                                              for b in range(len(pauli_four_vec[a]))]
     
-    szsa_list = [sz_list[n] * pauli_vec[a][b] for n in range (N)
-                                             for a in range(len(pauli_vec))
-                                             for b in range(len(pauli_vec[a]))]
+    szsa_list = [sz_list[n] * pauli_four_vec[a][b] for n in range(N)
+                                             for a in range(len(pauli_four_vec))
+                                             for b in range(len(pauli_four_vec[a]))]
     
     two_body_s = [sxsa_list, sysa_list, szsa_list]
     return two_body_s
@@ -67,7 +70,6 @@ def all_two_body_spin_ops(N, pauli_vec = list):
 def Heisenberg_hamiltonian (N, Jx = list, Jy = list, Jz = list, h = list):
     globalid_list, sx_list, sy_list, sz_list = one_body_spin_ops(N)
     H = 0;
-    
     for n in range(N):
         H += -0.5*h[n]*sz_list[n]
         
@@ -91,6 +93,7 @@ def free_particle_ops(N, H_H = 1, sz_list=list):
 
 def n_body_max_ent_state(gr, N, coeffs = list):
     K = 0; 
+    loc_global_id_list = one_body_spin_ops(N)[0]
     sx_list = one_body_spin_ops(N)[1];
     sy_list = one_body_spin_ops(N)[2];
     sz_list = one_body_spin_ops(N)[3];
@@ -107,10 +110,11 @@ def n_body_max_ent_state(gr, N, coeffs = list):
             raise ex
     elif (gr == 2): 
         try:
-            K += sum(coeffs[n][m] * all_two_body_spin_ops(N, pauli_vec)[n][m] 
-                    for n in range(len(all_two_body_spin_ops(N, pauli_vec)))
-                    for m in range(len(all_two_body_spin_ops(N, pauli_vec)[n]))
+            K += sum(coeffs[n][m] * all_two_body_spin_ops(N)[n][m] 
+                    for n in range(len(all_two_body_spin_ops(N)))
+                    for m in range(len(all_two_body_spin_ops(N)[n]))
                    )
+            K += loc_global_id_list[0]
         except Exception as ex:
             print(ex)
             raise ex
@@ -238,14 +242,17 @@ def spin_dephasing(N, gamma):
 
 # In [11]:
 
-def initial_state(N = int, gaussian = True, gr = 1, x = .5, coeffs = list, psi0 = qutip.qobj):
+def initial_state(N = 1, gaussian = True, gr = 1, x = .5, coeffs = list, psi0 = qutip.Qobj):
     loc_globalid = qutip.tensor([qutip.qeye(2) for k in range(N)]) 
     if gaussian: 
         rho0 = n_body_max_ent_state(gr, N, coeffs)
     else:
-        rho0 = psi0 * psi0.dag()
-        rho0 = x * rho0 + (1-x)*loc_globalid * x/N
-        rho0 = rho0/rho0.tr()
+        if (qutip.isket(psi0)):
+            rho0 = psi0 * psi0.dag()
+            rho0 = x * rho0 + (1-x)*loc_globalid * x/N
+            rho0 = rho0/rho0.tr()
+        else:
+            print("Psi0 must be a ket")
     return rho0     
 
 # In [11]: legacy
