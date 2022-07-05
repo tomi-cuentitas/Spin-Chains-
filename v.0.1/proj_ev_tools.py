@@ -38,10 +38,11 @@ def one_body_spin_ops(N = int):
         loc_sz_list.append(qutip.tensor(operator_list))        
     return loc_globalid_list, loc_sx_list, loc_sy_list, loc_sz_list
 
-# In [3]:# updated version, lo pensé como un grafo orientado
+# In [3]:# updated version, lo pensé como un árbol orientado
 
 # técnicamente hay 36 operadores en esta lista de listas para N = 2, pero hay muchos repetidos. 
 # Ejemplo: sx^1 * sx^2 = - sx^2 * sx^1 y también sx^2 * sy^1 = sy^1 * sx^2
+
 def all_two_body_spin_ops(N):
     loc_global_id_list = one_body_spin_ops(N)[0]
     sx_list = one_body_spin_ops(N)[1]
@@ -315,7 +316,7 @@ def error_proj_state(rho, rho0, basis, distance=bures):
 # In [10]:
 
 def spin_dephasing(N, gamma):
-    loc_c_op_list = []
+    loc_c_op_list = []; sz_list = one_body_spin_ops(N)[3];
     collapse_weights = gamma * np.ones(N)
     for n in range(N):
         if collapse_weights[n] > 0.0:
@@ -337,7 +338,7 @@ def initial_state(N = 1, gaussian = True, gr = 1, x = .5, coeffs = list, psi0 = 
             print("Psi0 must be a ket")
     return rho0     
 
-# In [11]: legacy
+# In [12]: legacy
 ## class one_body_ME():
 ##    def __init__(self, K):
 ##        self.K = linalg.expm(K)
