@@ -7,6 +7,7 @@ import qutip
 import numpy as np
 import scipy.optimize as opt 
 import pickle
+import scipy.linalg as linalg
 
 # In[2]:
 
@@ -91,8 +92,79 @@ def free_particle_ops(N, H_H = 1, sz_list=list):
 
 # In [6]:
 
+natural = tuple('123456789')
+
+def n_body_basis(gr, N):
+    basis = []
+    globalid_list, sx_list, sy_list, sz_list = one_body_spin_ops(N)
+    
+    if (isinstance(gr,int) and str(gr) in natural):
+        if (gr == 1):
+            basis = globalid_list + sx_list + sy_list + sz_list
+        elif (gr > 1):
+            basis = [op1*op2 for op1 in n_body_basis(gr-1, N) for op2 in n_body_basis(1, N)]
+    else:
+        basis = 'beep boop, gr must be natural'
+    return basis
+
+# In [7]: 
+
+def basis_defs_test(N = 2):
+    globalid_list, sx_list, sy_list, sz_list = one_body_spin_ops(N)
+    
+    one_site_basis = globalid_list + sx_list + sy_list + sz_list 
+    
+    two_site_basis = [op1*op2 for op1 in one_site_basis 
+                              for op2 in one_site_basis]
+
+    tercera_base = [op*op3 for op in two_site_basis for op3 in one_site_basis]
+    three_site_basis = [op1*op2*op3 for op1 in one_site_basis 
+                                    for op2 in one_site_basis 
+                                    for op3 in one_site_basis]
+
+    cuarta_base = [op*op4 for op in three_site_basis for op4 in one_site_basis]
+    four_site_basis = [op1*op2*op3*op4 for op1 in one_site_basis 
+                                       for op2 in one_site_basis 
+                                       for op3 in one_site_basis 
+                                       for op4 in one_site_basis]
+
+    uno_a_cuatro_bases = []
+    uno_a_cuatro_bases.append(one_site_basis)
+    uno_a_cuatro_bases.append(two_site_basis)
+    uno_a_cuatro_bases.append(three_site_basis)
+    uno_a_cuatro_bases.append(four_site_basis)
+    
+    boolean = False 
+    for n in range(4): 
+        for m in range(3):
+            if (n_body_basis(n+1, N) == uno_a_cuatro_bases[m] and n != m):
+                print('Error: Two different index basis definitions equal', boolean)
+            if (n_body_basis(n+1, N) != uno_a_cuatro_bases[m] and n == m):
+                print('Error: Two same index basis definitions not equal', boolean)
+            else:
+                print('OK', True)
+    return None
+
+# In [6]:
+
+def ev_checks(rho):
+    a = bool 
+    ev_list = linalg.eig(rho)[0]
+    for i in range(len(ev_list)):
+        if (ev_list[i] > 0):
+            a = True
+        else:
+            a = False
+            print("Eigenvalues not positive")
+    return a
+
+def is_density_op(rho):
+    return (qutip.isherm(rho) and (rho.tr() == 1 or (1 - rho.tr() < 10**-10)) and ev_checks(rho)) 
+
+# In [7]:
+
 def n_body_max_ent_state(gr, N, coeffs = list):
-    K = 0; 
+    K = 0; rho_loc = 0;
     loc_global_id_list = one_body_spin_ops(N)[0]
     sx_list = one_body_spin_ops(N)[1];
     sy_list = one_body_spin_ops(N)[2];
@@ -120,7 +192,17 @@ def n_body_max_ent_state(gr, N, coeffs = list):
             raise ex
     else:
         print('gr must be either 1 or 2')
-    return K.expm()
+    
+    rho_loc = K.expm()
+    rho_loc = rho_loc/rho_loc.tr()
+    
+    if is_density_op(rho_loc):
+        pass
+    else:  
+        rho_loc = None 
+        print("The result is not a density operator")
+        
+    return rho_loc 
 
 # In [7]: 
 
