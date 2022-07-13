@@ -1,4 +1,4 @@
- # In [1]:
+# In [1]:
 
 import qutip
 import numpy as np
@@ -242,7 +242,7 @@ def base_orth(ops, rho0):
     return basis
 
 def logM(rho):
-    if me.ev_checks(rho):
+    if ev_checks(rho):
         pass
     else:
         raise Exception("Singular input matrix")
@@ -317,3 +317,39 @@ def error_proj_state(rho, rho0, basis, distance=bures):
     except:
         print("fail error proj state")
         return None
+    
+# In [12]:
+
+def spin_dephasing(N, gamma, unitary_ev = True):
+    if unitary_ev:
+        loc_c_op_list = []; sz_list = one_body_spin_ops(N)[3];
+        collapse_weights = abs(gamma) * np.ones(N)
+        loc_c_op_list = [np.sqrt(collapse_weights[n]) * sz_list[n] for n in range(N)]
+    else: 
+        loc_c_op_list = 0.0 * np.ones(N)
+    return loc_c_op_list
+
+# In [13]:
+
+def initial_state(N = 1, gaussian = True, gr = 1, x = .5, coeffs = list, psi0 = qutip.Qobj,                             visualization=False):
+    loc_globalid = qutip.tensor([qutip.qeye(2) for k in range(N)]) 
+    if gaussian: 
+        rho0 = n_body_max_ent_state(gr, N, coeffs)
+    else:
+        if (qutip.isket(psi0)):
+            rho0 = psi0 * psi0.dag()
+            rho0 = x * rho0 + (1-x)*loc_globalid * x/N
+            rho0 = rho0/rho0.tr()
+        else:
+            print("Psi0 must be a ket")
+    
+    if is_density_op(rho0):
+        pass
+    else: 
+        rho0 = None
+        print("Output is not a density operador")
+    
+    if visualization:
+            qutip.hinton(rho0)
+    
+    return rho0     
