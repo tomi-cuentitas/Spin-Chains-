@@ -331,7 +331,8 @@ def spin_dephasing(N, gamma, unitary_ev = True):
 
 # In [13]:
 
-def initial_state(N = 1, gaussian = True, gr = 1, x = .5, coeffs = list, psi0 = qutip.Qobj,                             visualization=False):
+def initial_state(N = 1, gaussian = True, gr = 1, x = .5, coeffs = list, psi0 = qutip.Qobj,
+                  visualization=False):
     loc_globalid = qutip.tensor([qutip.qeye(2) for k in range(N)]) 
     if gaussian: 
         rho0 = n_body_max_ent_state(gr, N, coeffs)
