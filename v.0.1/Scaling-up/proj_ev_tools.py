@@ -130,3 +130,78 @@ def Heisenberg_Hamiltonian(chain_type, N, visualization, Jx, Jy, Jz, h):
     return H
     
 # In [7]:
+
+def classical_ops(chain_type, N, Jx, Jy, Jz, h):
+    H_H = Heisenberg_Hamiltonian(chain_type, N, False, Jx, Jy, Jz, h)
+    sz_list = one_body_spin_ops(N)[3]
+    
+    loc_x_op = sum((.5 + sz_list[a])*(a+1) for a in range(N))
+    loc_p_op = 1j * (loc_x_op*H_H - H_H*loc_x_op)
+    loc_comm_xp = .5*(loc_x_op*loc_p_op + loc_p_op*loc_x_op)
+    loc_corr_xp = -1j*(loc_x_op*loc_p_op - loc_p_op*loc_x_op)
+    loc_p_dot = 1j*(H_H * loc_p_op - loc_p_op * H_H)
+    
+    return loc_x_op, loc_p_op, loc_comm_xp, loc_corr_xp, loc_p_dot
+   
+# In [8]: 
+
+natural = tuple('123456789')
+
+def n_body_basis(gr, N):
+    basis = []
+    globalid_list, sx_list, sy_list, sz_list = one_body_spin_ops(N)
+    
+    if (isinstance(gr,int) and str(gr) in natural):
+        if (gr == 1):
+            basis = globalid_list + sx_list + sy_list + sz_list
+        elif (gr > 1):
+            basis = [op1*op2 for op1 in n_body_basis(gr-1, N) for op2 in n_body_basis(1, N)]
+    else:
+        basis = 'beep boop, gr must be natural'
+    return basis
+
+# In [9]:
+
+def n_body_max_ent_state(gr, N, coeffs = list, visualization = False):
+    K = 0; rho_loc = 0;
+    loc_global_id_list = one_body_spin_ops(N)[0]
+    sx_list = one_body_spin_ops(N)[1];
+    sy_list = one_body_spin_ops(N)[2];
+    sz_list = one_body_spin_ops(N)[3];
+    pauli_vec = [sx_list, sy_list, sz_list];
+    
+    if (gr == 1):
+        try:
+            K += sum(coeffs[n][m] *  one_body_spin_ops(N)[n][m] 
+                                    for n in range(len(one_body_spin_ops(N)))
+                                    for m in range(len(one_body_spin_ops(N)[n]))
+                   ) 
+        except Exception as exme1:
+            print(exme1, "Max-Ent 1 Failure")
+            raise ex
+    elif (gr == 2): 
+        try:
+            K += sum(coeffs[n][m] * all_two_body_spin_ops(N)[n][m] 
+                    for n in range(len(all_two_body_spin_ops(N)))
+                    for m in range(len(all_two_body_spin_ops(N)[n]))
+                   )
+            K += loc_global_id_list[0]
+        except Exception as exme2:
+            print(exme2, "Max-Ent 2 Failure")
+            raise ex
+    else:
+        print('gr must be either 1 or 2')
+    
+    rho_loc = K.expm()
+    rho_loc = rho_loc/rho_loc.tr()
+    
+    if is_density_op(rho_loc):
+        pass
+    else:  
+        rho_loc = None 
+        print("The result is not a density operator")
+        
+    if visualization: 
+        qutip.hinton(rho_loc)
+        
+    return rho_loc 
