@@ -4,6 +4,7 @@ import qutip
 import numpy as np
 import scipy.optimize as opt 
 import pickle
+import sys
 import scipy.linalg as linalg
 
 # In [2]:
@@ -93,20 +94,39 @@ def two_body_spin_ops(N, build_all = False):
 
 # In [6]: 
 
-def XXX_hamiltonian(N, Jx, h):
-    loc_global_id_list, sx_list, sy_list, sz_list = one_body_spin_ops(N)        
+def Heisenberg_Hamiltonian(chain_type, N, visualization, Jx, Jy, Jz, h):
+    spin_chain_type = ["XYZ", "XXZ", "XXX"]
+    loc_global_id_list, sx_list, sy_list, sz_list = one_body_spin_ops(N)   
+      
     H = 0
+    
     Jx = Jx * 2 * np.pi * np.ones(N)
     h = h * 2 * np.pi * np.ones(N)
+    H += sum(-.5* h[n] * sz_list[n] for n in range(N))
     
-    for n in range(N):
-        H += -0.5*h[n]*sz_list[n]
+    if (chain_type in spin_chain_type): 
+        if chain_type == "XXX":
+            H += sum(-.5* Jx[n] * (sx_list[n]*sx_list[n+1] 
+                                 + sy_list[n]*sy_list[n+1]
+                                 + sz_list[n]*sz_list[n+1]) for n in range(N-1))
         
-    for n in range(N-1):
-        H += -0.5 * Jx[n] * sx_list[n] * sx_list[n+1]
-        H += -0.5 * Jx[n] * sy_list[n] * sy_list[n+1]
-        H += -0.5 * Jx[n] * sz_list[n] * sz_list[n+1]
-
-
-def Heisenberg_Hamiltonian(chain_type, N, )
+        elif chain_type == "XXZ":
+            Jz = Jz * 2 * np.pi * np.ones(N)
+            H += sum(-.5 * Jx[n] * (sx_list[n] * sx_list[n+1] + sy_list[n] * sy_list[n+1]) 
+                     -.5 * Jz[n] * (sz_list[n] * sz_list[n+1]) for n in range(N-1))
         
+        elif chain_type == "XYZ":
+            Jy = Jy * 2 * np.pi * np.ones(N)
+            Jz = Jz * 2 * np.pi * np.ones(N)
+            H += sum(-.5 * Jx[n] * (sx_list[n] * sx_list[n+1])
+                     -.5 * Jy[n] * (sy_list[n] * sy_list[n+1]) 
+                     -.5 * Jz[n] * (sz_list[n] * sz_list[n+1]) for n in range(N-1))
+    else:
+        sys.exit("Currently not supported chain type")
+              
+    if visualization:
+        qutip.hinton(H)
+              
+    return H
+    
+# In [7]:
