@@ -23,6 +23,82 @@ def is_density_op(rho):
     return (qutip.isherm(rho) and (rho.tr() == 1 or (1 - rho.tr() < 10**-10)) and ev_checks(rho)) 
 
 # In [3]: 
+
+def basic_bos_ops(L, dim):
+    loc_globalid_list = []; loc_destroy_list = []; loc_create_list = []; loc_num_list = []
+    
+    id_op = qutip.qeye(dim)
+    a_op = qutip.destroy(dim)
+    adag_op = qutip.create(dim)
+    num_op = qutip.num(dim)
+    loc_global_id = qutip.tensor([qutip.qeye(dim) for k in range(L)])
+    
+    for n in range(L):
+        operator_list = []
+        for m in range(L):
+            operator_list.append(id_op)
+        loc_globalid_list.append(loc_global_id)
+        operator_list[n] = a_op
+        loc_destroy_list.append(qutip.tensor(operator_list))
+        
+        operator_list[n] = adag_op
+        loc_create_list.append(qutip.tensor(operator_list))
+        
+        operator_list[n] = num_op
+        loc_num_list.append(qutip.tensor(operator_list))
+    return loc_globalid_list,loc_destroy_list,loc_create_list,loc_num_list
+
+# In [4]: 
+
+def all_one_and_two_body_bosonic_ops(L, dim):
+    loc_globalid_list,loc_destroy_list,loc_create_list,loc_num_list = one_body_bosonic_ops(L, dim)
+    
+    four_vec = [loc_globalid_list,loc_destroy_list,loc_create_list]
+    
+    destroy_bos_op = []; create_bos_op = []; num_bos_op = []; two_body_bos = [];
+    
+    destroy_bos_op = [loc_destroy_list[n] * four_vec[a][b] for n in range(L)
+                                                           for a in range(len(four_vec))
+                                                           for b in range(len(four_vec[a]))]
+    
+    create_bos_op = [loc_create_list[n] * four_vec[a][b] for n in range(L)
+                                                           for a in range(len(four_vec))
+                                                           for b in range(len(four_vec[a]))]
+    
+    two_body_bos = [loc_globalid_list, destroy_bos_op, create_bos_op, loc_num_list]
+    return two_body_bos
+
+# In [5]: 
+
+def bosonic_Hamiltonian(bosonic_system, L, dim, coeff, visualization):
+    
+    bos_system_type = ["harmonic oscillator", "tight-binding"]
+    loc_globalid_list,loc_destroy_list,loc_create_list,loc_num_list = basic_bos_ops(L, dim)
+    
+    H = 0
+    
+    if (bosonic_system in bos_system_type):
+        
+        if bosonic_system == "harmonic oscillator":
+            coeff = coeff * np.pi * np.ones(L)
+            H += sum(coeff[l] * loc_num_list[l] for l in range(L))
+            
+        elif bosonic_system == "tight-binding":
+            t = coeff
+            H += -t * sum(loc_create_list[j] * loc_destroy_list[j+1] 
+                          + loc_destroy_list[j] * loc_create_list[j+1] for j in range(L-2))
+            H += -t * (loc_create_list[L-1] * loc_destroy_list[1] 
+                       + loc_destroy_list[L-1] * loc_create_list[1])
+    
+    else:
+        sys.exit("Not supported bosonic system")
+    
+    
+    if visualization: 
+        qutip.hinton(H)
+        
+    return H
+
 # In [8]: 
 
 natural = tuple('123456789')
