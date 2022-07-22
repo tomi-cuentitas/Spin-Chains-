@@ -99,63 +99,7 @@ def bosonic_Hamiltonian(bosonic_system, L, dim, coeff, visualization):
         
     return H
 
-# In [8]: 
-
-natural = tuple('123456789')
-
-def n_body_basis(gr, N):
-    basis = []
-    globalid_list, sx_list, sy_list, sz_list = one_body_spin_ops(N)
-    
-    if (isinstance(gr,int) and str(gr) in natural):
-        try:
-            if (gr == 1):
-                basis = globalid_list + sx_list + sy_list + sz_list
-            elif (gr > 1):
-                basis = [op1*op2 for op1 in n_body_basis(gr-1, N) for op2 in n_body_basis(1, N)]
-        except Exception as ex:
-            basis = None
-            print(ex)
-    return basis
-
-# In [9]:
-
-def n_body_max_ent_state(gr, N, coeffs = list, build_all = True, visualization = False):
-    K = 0; rho_loc = 0;
-    
-    loc_globalid = qutip.tensor([qutip.qeye(2) for k in range(N)]) 
-    loc_id_list, sx_list, sy_list, sz_list = one_body_spin_ops(N)
-    pauli_vec = [sx_list, sy_list, sz_list];
-    
-    if (gr == 1):
-        try:
-        
-        except Exception as exme1:
-            print(exme1, "Max-Ent 1 Failure")
-            raise exme1
-    elif (gr == 2): 
-        try:
-        except Exception as exme2:
-            print(exme2, "Max-Ent 2 Failure")
-            raise exme2
-    else:
-        print('gr must be either 1 or 2')
-    
-    rho_loc = K.expm()
-    rho_loc = rho_loc/rho_loc.tr()
-    
-    if is_density_op(rho_loc):
-        pass
-    else:  
-        rho_loc = None 
-        raise Exception("The result is not a density operator")
-        
-    if visualization: 
-        qutip.hinton(rho_loc)
-        
-    return rho_loc 
-
-#In [10]:
+# In [6]: 
 
 def prod_basis(b1, b2):
     return [qutip.tensor(b,s) for b in b1 for s in b2]
@@ -274,27 +218,3 @@ def spin_dephasing(N, gamma):
     return loc_c_op_list
 
 # In [13]:
-
-def initial_state(N = 1, gaussian = True, gr = 1, x = .5, coeffs = list, psi0 = qutip.Qobj,
-                  visualization=False):
-    loc_globalid = qutip.tensor([qutip.qeye(2) for k in range(N)]) 
-    if gaussian: 
-        rho0 = n_body_max_ent_state(gr, N, coeffs)
-    else:
-        if (qutip.isket(psi0)):
-            rho0 = psi0 * psi0.dag()
-            rho0 = x * rho0 + (1-x)*loc_globalid * x/N
-            rho0 = rho0/rho0.tr()
-        else:
-            print("Psi0 must be a ket")
-    
-    if is_density_op(rho0):
-        pass
-    else: 
-        rho0 = None
-        print("Output is not a density operador")
-    
-    if visualization:
-            qutip.hinton(rho0)
-    
-    return rho0     
