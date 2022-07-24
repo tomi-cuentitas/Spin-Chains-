@@ -101,6 +101,35 @@ def bosonic_Hamiltonian(bosonic_system, L, dim, coeff, visualization):
 
 # In [6]: 
 
+def two_body_gaussian_state(L, dim, coeffs, visualization = False):
+    loc_globalid_list,loc_destroy_list,loc_create_list,loc_num_list = me.basic_bos_ops(L, dim)
+    
+    a = len(me.basic_bos_ops(L, dim))
+    b = len(me.basic_bos_ops(L, dim)[0])
+    coeffs_list = coeffs * np.full((a,b),1)
+    
+    K = 0;
+    
+    K += sum(coeffs_list[a][b] * me.basic_bos_ops(L, dim)[a][b] 
+             for a in range(L) for b in range(L))
+    
+    rho_loc = 0
+    rho_loc = K.expm()
+    rho_loc = rho_loc/ rho_loc.tr()
+    
+    if me.is_density_op(rho_loc):
+        pass 
+    else:  
+        rho_loc = None 
+        raise Exception("The result is not a density operator")
+        
+    if visualization: 
+        qutip.hinton(rho_loc)
+    
+    return rho_loc
+
+# In [7]: 
+
 def prod_basis(b1, b2):
     return [qutip.tensor(b,s) for b in b1 for s in b2]
 
