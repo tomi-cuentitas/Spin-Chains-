@@ -95,7 +95,7 @@ def two_body_spin_ops(N, build_all = False):
 # In [6]: 
 
 def Heisenberg_Hamiltonian(chain_type, N, visualization, Jx, Jy, Jz, h):
-    spin_chain_type = ["XYZ", "XXZ", "XXX"]
+    spin_chain_type = ["XX", "XYZ", "XXZ", "XXX"]
     loc_global_id_list, sx_list, sy_list, sz_list = one_body_spin_ops(N)   
       
     H = 0
@@ -105,7 +105,11 @@ def Heisenberg_Hamiltonian(chain_type, N, visualization, Jx, Jy, Jz, h):
     H += sum(-.5* h[n] * sz_list[n] for n in range(N))
     
     if (chain_type in spin_chain_type): 
-        if chain_type == "XXX":
+        if chain_type == "XX":
+            H += sum(-.5* Jx[n] *(sx_list[n]*sx_list[n+1] 
+                                 + sy_list[n]*sy_list[n+1]) for n in range(N-1))
+            
+        elif chain_type == "XXX":
             H += sum(-.5* Jx[n] * (sx_list[n]*sx_list[n+1] 
                                  + sy_list[n]*sy_list[n+1]
                                  + sz_list[n]*sz_list[n+1]) for n in range(N-1))
