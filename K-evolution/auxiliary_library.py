@@ -90,9 +90,12 @@ def two_body_spin_ops(big_list, N, build_all = False):
         loc_list.append(loc_szsz)
     return loc_list
 
+
 # In [6]: 
 
-def Heisenberg_Hamiltonian(big_list, chain_type, N, visualization, Jx, Jy, Jz, h):
+def Heisenberg_Hamiltonian(big_list, chain_type, N, visualization, param_list):
+    
+    Jx, Jy, Jz, h = param_list    
     spin_chain_type = ["XX", "XYZ", "XXZ", "XXX"]
     loc_globalid_list, sx_list, sy_list, sz_list = big_list       
           
