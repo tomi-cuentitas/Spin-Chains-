@@ -90,19 +90,16 @@ def two_body_spin_ops(big_list, N, build_all = False):
         loc_list.append(loc_szsz)
     return loc_list
 
-
 # In [6]: 
 
-def Heisenberg_Hamiltonian(big_list, chain_type, N, visualization, param_list):
-    
-    Jx, Jy, Jz, h = param_list    
+def Heisenberg_Hamiltonian(big_list, chain_type, N, visualization, Hamiltonian_paras):
     spin_chain_type = ["XX", "XYZ", "XXZ", "XXX"]
     loc_globalid_list, sx_list, sy_list, sz_list = big_list       
           
     H = 0
     
-    Jx = Jx * 2 * np.pi * np.ones(N)
-    h = h * 2 * np.pi * np.ones(N)
+    Jx = Hamiltonian_paras[0] * 2 * np.pi * np.ones(N)
+    h =  Hamiltonian_paras[3] * 2 * np.pi * np.ones(N)
     H += sum(-.5* h[n] * sz_list[n] for n in range(N))
     
     if (chain_type in spin_chain_type): 
@@ -116,13 +113,13 @@ def Heisenberg_Hamiltonian(big_list, chain_type, N, visualization, param_list):
                                  + sz_list[n]*sz_list[n+1]) for n in range(N-1))
         
         elif chain_type == "XXZ":
-            Jz = Jz * 2 * np.pi * np.ones(N)
+            Jz =  Hamiltonian_paras[2] * 2 * np.pi * np.ones(N)
             H += sum(-.5 * Jx[n] * (sx_list[n] * sx_list[n+1] + sy_list[n] * sy_list[n+1]) 
                      -.5 * Jz[n] * (sz_list[n] * sz_list[n+1]) for n in range(N-1))
         
         elif chain_type == "XYZ":
-            Jy = Jy * 2 * np.pi * np.ones(N)
-            Jz = Jz * 2 * np.pi * np.ones(N)
+            Jy = Hamiltonian_paras[1] * 2 * np.pi * np.ones(N)
+            Jz = Hamiltonian_paras[2] * 2 * np.pi * np.ones(N)
             H += sum(-.5 * Jx[n] * (sx_list[n] * sx_list[n+1])
                      -.5 * Jy[n] * (sy_list[n] * sy_list[n+1]) 
                      -.5 * Jz[n] * (sz_list[n] * sz_list[n+1]) for n in range(N-1))
@@ -136,8 +133,8 @@ def Heisenberg_Hamiltonian(big_list, chain_type, N, visualization, param_list):
     
 # In [7]:
 
-def classical_ops(big_list, chain_type, N, Jx, Jy, Jz, h):
-    H_H = Heisenberg_Hamiltonian(big_list, chain_type, N, False, Jx, Jy, Jz, h)
+def classical_ops(big_list, chain_type, N, Hamiltonian_paras):
+    H_H = Heisenberg_Hamiltonian(big_list, chain_type, N, False, Hamiltonian_paras)
     sz_list = big_list[3]
         
     loc_x_op = sum((.5 + sz_list[a])*(a+1) for a in range(N))
@@ -249,6 +246,21 @@ def mod_HS_inner_prod(A, B, rho0 = None):
     
     return result
 
+def mod_Hilbert_Schmidt_distance(rho, sigma, rho0 = None):
+    if rho.dims[0][0]==sigma.dims[0][0]:
+        pass
+    else:
+        raise Exception("Incompatible Qobj dimensions")
+    
+    if rho0 is None:
+        rho0 = qutip.qeye(rho.dims[0])
+        rho0 = rho0/rho0.tr()
+    
+    result = rho0*((rho-sigma)*(rho.dag()-sigma.dag()))
+    result = (result).tr()
+    
+    return result
+
 def base_orth(ops, rho0):
     if isinstance(ops[0], list):
         ops = [op for op1l in ops for op in op1l]
@@ -281,7 +293,7 @@ def sqrtM(rho):
     return sum([(vl**.5)*vc*vc.dag() for vl, vc in zip(eigvals, eigvecs)])
 
 def proj_op(K, basis, rho0):
-    return sum([mod_HS_inner_product(b, K,rho0) * b for b in basis])
+    return sum([mod_HS_inner_prod(b, K,rho0) * b for b in basis])
 
 def rel_entropy(rho, sigma):
     if (ev_checks(rho) and ev_checks(sigma)):
@@ -400,8 +412,8 @@ def choose_initial_state_type(op_list, N, build_all, x, gaussian, gr):
         statement = "One-body Gaussian"
         
     elif(gaussian and gr == 2):
-        a = len(all_two_body_spin_ops(N))
-        b = len(all_two_body_spin_ops(N)[0])
+        a = len(all_two_body_spin_ops(op_list, N))
+        b = len(all_two_body_spin_ops(op_list, N)[0])
 
         coeffs_me2_gr2 = 10**-3 * np.full((a,b),1.)
         rho0 = initial_state(op_list, N, True, 2, None, coeffs_me2_gr2, None, build_all, False)
@@ -421,3 +433,144 @@ def choose_initial_state_type(op_list, N, build_all, x, gaussian, gr):
          print(statement + " initial state chosen")
             
     return rho0
+
+# In [15]:
+
+HS_modified = True
+
+class Result(object):
+      def __init__(self, ts=None, states=None):
+        self.ts = ts
+        self.states = states
+        self.projrho0_app = None   
+        self.projrho_inst_app = None 
+
+def callback(t, rhot):
+    global rho
+    rho = rhot
+
+def spin_chain_ev(size, chain_type, Hamiltonian_paras, omega_1=3., omega_2=3., temp=1, tmax = 250, deltat = 10, 
+                  two_body_basis = True, unitary_ev = False, gamma = 1*np.e**-2,
+                  gaussian = True, gr = 2, xng = .5, do_project = True):
+    
+    global rho
+    loc_globalid = qutip.tensor([qutip.qeye(2) for k in range(size)])
+    build_all = True
+
+    spin_big_list = one_body_spin_ops(size)
+    
+    Jx = Hamiltonian_paras[0]
+    Jy = Hamiltonian_paras[1]
+    Jz = Hamiltonian_paras[2]
+    h = Hamiltonian_paras[3] 
+
+    rho0 = choose_initial_state_type(spin_big_list, size, build_all, xng, gaussian, gr)
+    basis = max_ent_basis(spin_big_list, two_body_basis, size, rho0)
+        
+    x_op, p_op, comm_xp, corr_xp, p_dot = classical_ops(spin_big_list, chain_type, size, Hamiltonian_paras)
+    obs = [x_op, p_op, comm_xp, corr_xp, p_dot]
+          #, x_op**2,p_op**2, corr_op, p_dot]
+        
+    sampling = max(int(10*max(1,omega_1, omega_2)*deltat), 10)
+    
+    if unitary_ev: 
+        c_op_list = None
+        print("Closed evolution chosen")
+    else:
+        c_op_list = spin_dephasing(spin_big_list, size, gamma)
+        print("Open evolution chosen")
+        
+    rho = rho0                                                               ## // Á la Mauricio
+    approx_exp_vals = [[qutip.expect(op, rho) for op in obs]]
+    ts= [0]
+
+    for i in range(int(tmax/deltat)):
+        qutip.mesolve(H=Heisenberg_Hamiltonian(spin_big_list, chain_type, size, False, Hamiltonian_paras), 
+                               rho0=rho, 
+                               tlist=np.linspace(0,deltat, sampling), 
+                               c_ops=c_op_list, 
+                               e_ops=callback,
+                               args={'gamma': gamma,'omega_1': omega_1, 'omega_2': omega_2}
+                               )
+        ts.append(deltat*i)
+        if do_project:
+            rho = proj_op(logM(rho), basis, rho0)
+            #rho = proj_op(logM(rho), basis, loc_globalid)
+            e0 = max(rho.eigenenergies())
+            rho = rho - loc_globalid * e0
+            rho = rho.expm()
+            trrho = (2.*rho.tr())
+            rho = (rho+rho.dag())/trrho
+
+        #print(qutip.entropy.entropy_vn(rho))
+        newobs = [qutip.expect(rho, op) for op in obs]
+        approx_exp_vals.append(newobs)
+
+    result = {}
+    result["ts"] = ts
+    result["averages"] = np.array(approx_exp_vals)
+    result["State ev"] = np.array(rho)
+    
+    if unitary_ev:
+        title = f"{chain_type}-chain closed ev/Proj ev for N={size} spins" 
+    else:
+        title = f"{chain_type}-chain open ev/Proj ev for N={size} spins" 
+    
+    print("sampling:", sampling)
+    
+    #with open(title+".pkl","wb") as f:
+    #    pickle.dump(result, f)
+    return result, title
+
+# In [16: 
+
+def Hamiltonian_and_basis_obs(N, big_list, chain_type, Hamiltonian_paras, default_basis = True):
+    
+    H_H = Heisenberg_Hamiltonian(big_list, chain_type, N, False, Hamiltonian_paras)
+    
+    sx_list = big_list[1]
+    sz_list = big_list[3]
+    basis = []
+    
+    if default_basis:
+        Mz = sum(sz_list[i] for i in range(N))
+        loc_magnetization = [big_list[3][i] for i in range(len(big_list[3]))]
+        NN_interactions_on_x = [sx_list[i]*sx_list[i+1] + sx_list[i+1]*sx_list[i]  for i in range(3)] + [sx_list[3]*sx_list[0]+sx_list[0]*sx_list[3]]
+            
+        basis.append(Mz)
+        for i in range(len(loc_magnetization)):
+            basis.append(loc_magnetization[i])
+        for j in range(len(NN_interactions_on_x)):
+            basis.append(NN_interactions_on_x[j])
+        #basis.append([["1"]])
+    else:
+        basis = None
+    
+    for i in range(len(basis)):
+        if (type(basis[i]) != list):
+            continue
+        else:
+            sys.exit("Error: basis is a list of lists")
+    
+    return H_H, basis
+
+def initial_conditions(basis):
+    coeff_list_t0 = [np.random.rand() for i in range(len(basis))]
+    rho0 = (sum(np.pi * coeff_list_t0[i] * basis[i] for i in range(len(basis)))).expm()
+    rho0 = rho0/rho0.tr()
+
+    if is_density_op(rho0):
+        pass
+    else:
+        sys.exit("Not a density operator")
+    
+    return coeff_list_t0, rho0
+
+# In [17]:
+
+def H_ij_matrix(HH, basis, rho0):
+    
+    coeffs_list = []
+    coeffs_list = [[mod_HS_inner_prod(op1, (HH * op2 - op2 * HH), rho0) for op1 in basis] for op2 in basis]
+    coeffs_matrix = np.array(coeffs_list) # convert list to numpy array
+    return coeffs_matrix
