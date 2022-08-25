@@ -447,9 +447,10 @@ class Result(object):
         self.projrho0_app = None   
         self.projrho_inst_app = None 
 
+rhos = []
 def callback(t, rhot):
-    global rho
-    rho = rhot
+    global rhos
+    rhos.append(rhot)
 
 def spin_chain_ev(size, chain_type, Hamiltonian_paras, omega_1=3., omega_2=3., temp=1, tmax = 250, deltat = 10, 
                   two_body_basis = True, unitary_ev = False, gamma = 1*np.e**-2,
@@ -461,10 +462,8 @@ def spin_chain_ev(size, chain_type, Hamiltonian_paras, omega_1=3., omega_2=3., t
 
     spin_big_list = one_body_spin_ops(size)
     
-    Jx = Hamiltonian_paras[0]
-    Jy = Hamiltonian_paras[1]
-    Jz = Hamiltonian_paras[2]
-    h = Hamiltonian_paras[3] 
+    #Jx = Hamiltonian_paras[0]; Jy = Hamiltonian_paras[1]
+    #Jz = Hamiltonian_paras[2]; h = Hamiltonian_paras[3] 
 
     rho0 = choose_initial_state_type(spin_big_list, size, build_all, xng, gaussian, gr)
     basis = max_ent_basis(spin_big_list, two_body_basis, size, rho0)
@@ -507,11 +506,11 @@ def spin_chain_ev(size, chain_type, Hamiltonian_paras, omega_1=3., omega_2=3., t
         #print(qutip.entropy.entropy_vn(rho))
         newobs = [qutip.expect(rho, op) for op in obs]
         approx_exp_vals.append(newobs)
-
+    print(f"type rho={type(rho)}")
     result = {}
     result["ts"] = ts
     result["averages"] = np.array(approx_exp_vals)
-    result["State ev"] = np.array(rho)
+    result["State ev"] = rho
     
     if unitary_ev:
         title = f"{chain_type}-chain closed ev/Proj ev for N={size} spins" 
@@ -522,9 +521,12 @@ def spin_chain_ev(size, chain_type, Hamiltonian_paras, omega_1=3., omega_2=3., t
     
     #with open(title+".pkl","wb") as f:
     #    pickle.dump(result, f)
+    print("type rho=", type(result["State ev"]))
     return result, title
 
 # In [16: 
+
+### Tengo que ortogonalizarlo 
 
 def Hamiltonian_and_basis_obs(N, big_list, chain_type, Hamiltonian_paras, default_basis = True):
     
