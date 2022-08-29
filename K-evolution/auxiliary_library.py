@@ -47,6 +47,15 @@ def one_body_spin_ops(N):
         loc_sz_list.append(qutip.tensor(operator_list))        
     return loc_globalid_list, loc_sx_list, loc_sy_list, loc_sz_list
 
+def spin_dephasing(big_list, N, gamma):
+        loc_c_op_list = []; 
+        loc_sz_list = big_list[3]
+        
+        collapse_weights = abs(gamma) * np.ones(N)
+        loc_c_op_list = [np.sqrt(collapse_weights[n]) * loc_sz_list[n] for n in range(N)]
+    
+        return loc_c_op_list
+
 # In [4]: 
 
 def all_two_body_spin_ops(big_list, N):
@@ -228,7 +237,68 @@ def n_body_max_ent_state(big_list, gr, N, coeffs = list, build_all = True, visua
         
     return rho_loc 
 
-#In [10]:
+# In [10]: 
+
+def initial_state(big_list, N = 1, gaussian = True, gr = 1, x = .5, coeffs = list, psi0 = qutip.Qobj,
+                  build_all = False, visualization=False):
+    
+    loc_globalid = qutip.tensor([qutip.qeye(2) for k in range(N)]) 
+    if gaussian: 
+        rho0 = n_body_max_ent_state(big_list, gr, N, coeffs, build_all, False)
+    else:
+        if (qutip.isket(psi0)):
+            rho0 = psi0 * psi0.dag()
+            rho0 = x * rho0 + (1-x)*loc_globalid * x/N
+            rho0 = rho0/rho0.tr()
+        else:
+            print("Psi0 must be a ket")
+    
+    if is_density_op(rho0):
+        pass
+    else: 
+        rho0 = None
+        print("Output is not a density operador")
+    
+    if visualization:
+            qutip.hinton(rho0)
+    
+    return rho0  
+
+# In [11]:
+
+def choose_initial_state_type(op_list, N, build_all, x, gaussian, gr):
+    
+    if (gaussian and gr == 1):
+        a = len(op_list)
+        b = len(op_list[0])
+        coeffs_me1_gr1 = 10**-2.5 * np.full((a,b), 1)
+        rho0 = initial_state(op_list, N, True, 1, None, coeffs_me1_gr1, None, build_all, False)
+        statement = "One-body Gaussian"
+        
+    elif(gaussian and gr == 2):
+        a = len(all_two_body_spin_ops(op_list, N))
+        b = len(all_two_body_spin_ops(op_list, N)[0])
+
+        coeffs_me2_gr2 = 10**-3 * np.full((a,b),1.)
+        rho0 = initial_state(op_list, N, True, 2, None, coeffs_me2_gr2, None, build_all, False)
+        statement = "Two-body Gaussian"
+             
+    elif(not gaussian):
+        psi1_list = []
+        psi1_list.append(qutip.basis(2,0))
+        for n in range(N-1):
+            psi1_list.append(qutip.basis(2,1))
+
+        psi0 = qutip.tensor(psi1_list)
+        rho0 = initial_state(op_list, N, False, None, .5, None, psi0, build_all, False)
+        statement = "Non Gaussian"
+      
+    if gaussian:
+         print(statement + " initial state chosen")
+            
+    return rho0
+
+#In [12]:
 
 def prod_basis(b1, b2):
     return [qutip.tensor(b,s) for b in b1 for s in b2]
@@ -276,7 +346,10 @@ def base_orth(ops, rho0):
             continue
         op_mod = op_mod/(op_norm)
         basis.append(op_mod)
+        
     return basis
+
+# In [13]: 
 
 def logM(rho):
     if ev_checks(rho):
@@ -294,6 +367,24 @@ def sqrtM(rho):
     eigvals, eigvecs = rho.eigenstates()
     return sum([(vl**.5)*vc*vc.dag() for vl, vc in zip(eigvals, eigvecs)])
 
+def bures(rho, sigma):
+    if is_density_op(rho) and is_density_op(sigma):
+        val = abs((sqrtM(rho)*sqrtM(sigma)).tr())
+        val = max(min(val,1.),-1.)
+    return np.arccos(val)/np.pi
+
+# In [14]: 
+
+def commutator(A, B):
+    result = 0
+    if A.dims[0][0] == B.dims[0][0]: 
+        pass
+    else:
+        raise Exception("Incompatible Qobj dimensions")
+    result += A*B-B*A
+
+    return result
+
 def proj_op(K, basis, rho0):
     return sum([mod_HS_inner_prod(b, K,rho0) * b for b in basis])
 
@@ -310,13 +401,7 @@ def rel_entropy(rho, sigma):
         raise Exception("Either rho or sigma not positive")
     return val.real
                 
-# In [11]:
-
-def bures(rho, sigma):
-    if is_density_op(rho) and is_density_op(sigma):
-        val = abs((sqrtM(rho)*sqrtM(sigma)).tr())
-        val = max(min(val,1.),-1.)
-    return np.arccos(val)/np.pi
+# In [15]:
         
 def maxent_rho(rho, basis):   
     def test(x, rho, basis):
@@ -355,88 +440,7 @@ def error_proj_state(rho, rho0, basis, distance=bures):
         print("fail error proj state")
         return None
     
-# In [12]:
-
-def commutator(A, B):
-    result = 0
-    if A.dims[0][0] == B.dims[0][0]: 
-        pass
-    else:
-        raise Exception("Incompatible Qobj dimensions")
-    result += A*B-B*A
-
-    return result
-
-def spin_dephasing(big_list, N, gamma):
-        loc_c_op_list = []; 
-        loc_sz_list = big_list[3]
-        
-        collapse_weights = abs(gamma) * np.ones(N)
-        loc_c_op_list = [np.sqrt(collapse_weights[n]) * loc_sz_list[n] for n in range(N)]
-    
-        return loc_c_op_list
-
-# In [13]:
-
-def initial_state(big_list, N = 1, gaussian = True, gr = 1, x = .5, coeffs = list, psi0 = qutip.Qobj,
-                  build_all = False, visualization=False):
-    loc_globalid = qutip.tensor([qutip.qeye(2) for k in range(N)]) 
-    if gaussian: 
-        rho0 = n_body_max_ent_state(big_list, gr, N, coeffs, build_all, False)
-    else:
-        if (qutip.isket(psi0)):
-            rho0 = psi0 * psi0.dag()
-            rho0 = x * rho0 + (1-x)*loc_globalid * x/N
-            rho0 = rho0/rho0.tr()
-        else:
-            print("Psi0 must be a ket")
-    
-    if is_density_op(rho0):
-        pass
-    else: 
-        rho0 = None
-        print("Output is not a density operador")
-    
-    if visualization:
-            qutip.hinton(rho0)
-    
-    return rho0  
-
-# In [14]:
-
-def choose_initial_state_type(op_list, N, build_all, x, gaussian, gr):
-    
-    if (gaussian and gr == 1):
-        a = len(op_list)
-        b = len(op_list[0])
-        coeffs_me1_gr1 = 10**-2.5 * np.full((a,b), 1)
-        rho0 = initial_state(op_list, N, True, 1, None, coeffs_me1_gr1, None, build_all, False)
-        statement = "One-body Gaussian"
-        
-    elif(gaussian and gr == 2):
-        a = len(all_two_body_spin_ops(op_list, N))
-        b = len(all_two_body_spin_ops(op_list, N)[0])
-
-        coeffs_me2_gr2 = 10**-3 * np.full((a,b),1.)
-        rho0 = initial_state(op_list, N, True, 2, None, coeffs_me2_gr2, None, build_all, False)
-        statement = "Two-body Gaussian"
-             
-    elif(not gaussian):
-        psi1_list = []
-        psi1_list.append(qutip.basis(2,0))
-        for n in range(N-1):
-            psi1_list.append(qutip.basis(2,1))
-
-        psi0 = qutip.tensor(psi1_list)
-        rho0 = initial_state(op_list, N, False, None, .5, None, psi0, build_all, False)
-        statement = "Non Gaussian"
-      
-    if gaussian:
-         print(statement + " initial state chosen")
-            
-    return rho0
-
-# In [15]:
+# In [16]: 
 
 HS_modified = True
 
@@ -524,7 +528,30 @@ def spin_chain_ev(size, chain_type, Hamiltonian_paras, omega_1=3., omega_2=3., t
     print("type rho=", type(result["State ev"]))
     return result, title
 
-# In [16: 
+# In [17]: 
+
+def recursive_basis(N, depth, H, seed_op): 
+    
+    null_matrix = np.zeros([(2**N), (2**N)]) 
+    null_matrix = qutip.Qobj(null_matrix.reshape((2**N, 2**N)), dims= [H.dims[0], H.dims[1]])
+    basis = []
+    i = 0
+    
+    if (type(depth) == int):
+        while (i != depth):
+            if (i == 0):
+                loc_op = seed_op
+            else:
+                loc_op = commutator(H, loc_op)
+                if (loc_op == null_matrix):
+                    print("Null operator obtained at", i, "-th level")
+            basis.append(loc_op)
+            i += 1
+    else:
+        basis = None 
+        sys.exit("Incursive Depth parameter must be integer")
+        
+    return basis
 
 ### Tengo que ortogonalizarlo 
 
@@ -566,11 +593,12 @@ def initial_conditions(basis):
     if is_density_op(rho0):
         pass
     else:
-        sys.exit("Not a density operator")
+        pass
+        #sys.exit("Not a density operator")
     
     return coeff_list_t0, rho0
 
-# In [17]:
+# In [18]:
 
 def H_ij_matrix(HH, basis, rho0):
     
