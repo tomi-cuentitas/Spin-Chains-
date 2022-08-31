@@ -343,6 +343,7 @@ def base_orth(ops, rho0):
         op_mod = op - sum([c*op2 for c, op2, in zip(alpha, basis)])
         op_norm = np.sqrt(mod_HS_inner_prod(op_mod,op_mod,rho0))
         if op_norm<1.e-12:
+            #pass
             continue
         op_mod = op_mod/(op_norm)
         basis.append(op_mod)
@@ -368,11 +369,13 @@ def sqrtM(rho):
     return sum([(vl**.5)*vc*vc.dag() for vl, vc in zip(eigvals, eigvecs)])
 
 def bures(rho, sigma):
-    if is_density_op(rho) and is_density_op(sigma):
-        val = abs((sqrtM(rho)*sqrtM(sigma)).tr())
-        val = max(min(val,1.),-1.)
-    return np.arccos(val)/np.pi
-
+    if (is_density_op(rho) and is_density_op(sigma)):
+        val1 = abs((me.sqrtM(rho)*me.sqrtM(sigma)).tr())
+        val1 = max(min(val1,1.),-1.)
+        val1 = np.arccos(val1)/np.pi
+    else: 
+        sys.exit("Singular input matrix")
+    return val1
 # In [14]: 
 
 def commutator(A, B):
@@ -456,7 +459,7 @@ def callback(t, rhot):
     global rhos
     rhos.append(rhot)
 
-def spin_chain_ev(size, chain_type, Hamiltonian_paras, omega_1=3., omega_2=3., temp=1, tmax = 250, deltat = 10, 
+def spin_chain_ev(size, init_state, chain_type, Hamiltonian_paras, omega_1=3., omega_2=3., temp=1, tmax = 250, deltat = 10, 
                   two_body_basis = True, unitary_ev = False, gamma = 1*np.e**-2,
                   gaussian = True, gr = 2, xng = .5, do_project = True):
     
@@ -485,7 +488,7 @@ def spin_chain_ev(size, chain_type, Hamiltonian_paras, omega_1=3., omega_2=3., t
         c_op_list = spin_dephasing(spin_big_list, size, gamma)
         print("Open evolution chosen")
         
-    rho = rho0                                                               ## // Á la Mauricio
+    rho = init_state                                                               ## // Á la Mauricio
     approx_exp_vals = [[qutip.expect(op, rho) for op in obs]]
     ts= [0]
 
@@ -514,7 +517,7 @@ def spin_chain_ev(size, chain_type, Hamiltonian_paras, omega_1=3., omega_2=3., t
     result = {}
     result["ts"] = ts
     result["averages"] = np.array(approx_exp_vals)
-    result["State ev"] = rho
+    result["State ev"] = rhos
     
     if unitary_ev:
         title = f"{chain_type}-chain closed ev/Proj ev for N={size} spins" 
