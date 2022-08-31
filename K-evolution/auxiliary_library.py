@@ -461,7 +461,7 @@ def callback(t, rhot):
 
 def spin_chain_ev(size, init_state, chain_type, Hamiltonian_paras, omega_1=3., omega_2=3., temp=1, tmax = 250, deltat = 10, 
                   two_body_basis = True, unitary_ev = False, gamma = 1*np.e**-2,
-                  gaussian = True, gr = 2, xng = .5, do_project = True):
+                  gaussian = True, gr = 2, xng = .5, obs_basis = None, do_project = True):
     
     global rho
     loc_globalid = qutip.tensor([qutip.qeye(2) for k in range(size)])
@@ -471,22 +471,35 @@ def spin_chain_ev(size, init_state, chain_type, Hamiltonian_paras, omega_1=3., o
     
     #Jx = Hamiltonian_paras[0]; Jy = Hamiltonian_paras[1]
     #Jz = Hamiltonian_paras[2]; h = Hamiltonian_paras[3] 
-
-    rho0 = choose_initial_state_type(spin_big_list, size, build_all, xng, gaussian, gr)
+    
+    if init_state is None:
+        print("Processing default initial state")
+        rho0 = choose_initial_state_type(spin_big_list, size, build_all, xng, gaussian, gr)
+    else: 
+        print("Processing custom initial state")
+        rho0 = init_state
+    print(rho0)
+    
     basis = max_ent_basis(spin_big_list, two_body_basis, size, rho0)
-        
-    x_op, p_op, comm_xp, corr_xp, p_dot = classical_ops(spin_big_list, chain_type, size, Hamiltonian_paras)
-    obs = [x_op, p_op, comm_xp, corr_xp, p_dot]
+    print("Processing two-body basis")
+       
+    if obs_basis is None: 
+        print("Processing default observable basis"),
+        x_op, p_op, comm_xp, corr_xp, p_dot = classical_ops(spin_big_list, chain_type, size, Hamiltonian_paras)
+        obs = [x_op, p_op, comm_xp, corr_xp, p_dot]
+    else:
+        print("Processing custom observable basis")
+        obs = obs_basis
           #, x_op**2,p_op**2, corr_op, p_dot]
         
     sampling = max(int(10*max(1,omega_1, omega_2)*deltat), 10)
     
     if unitary_ev: 
-        c_op_list = None
         print("Closed evolution chosen")
+        c_op_list = None
     else:
-        c_op_list = spin_dephasing(spin_big_list, size, gamma)
         print("Open evolution chosen")
+        c_op_list = spin_dephasing(spin_big_list, size, gamma)
         
     rho = init_state                                                               ## // Á la Mauricio
     approx_exp_vals = [[qutip.expect(op, rho) for op in obs]]
@@ -528,8 +541,15 @@ def spin_chain_ev(size, init_state, chain_type, Hamiltonian_paras, omega_1=3., o
     
     #with open(title+".pkl","wb") as f:
     #    pickle.dump(result, f)
-    print("type rho=", type(result["State ev"]))
-    return result, title
+    
+    #print("type rho=", type(result["State ev"]))
+    
+    ev_parameters = {"no. spins": size, "chain type": chain_type, "Model parameters": Hamiltonian_paras, "Sampling": sampling, 
+                     "Two body basis": two_body_basis, "Closed ev": unitary_ev, "Colapse parameters": gamma, 
+                     "Gaussian ev": gaussian, "Gaussian order": gr, "Non-gaussian para": xng, 
+                     "no. observables returned": len(obs), "Proj. ev": do_project}
+    
+    return title, ev_parameters, result
 
 # In [17]: 
 
