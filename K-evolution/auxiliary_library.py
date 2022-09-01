@@ -565,7 +565,7 @@ def recursive_basis(N, depth, H, seed_op):
             if (i == 0):
                 loc_op = seed_op
             else:
-                loc_op = commutator(H, loc_op)
+                loc_op = -1j * commutator(H, loc_op)
                 if (loc_op == null_matrix):
                     print("Null operator obtained at", i, "-th level")
             basis.append(loc_op)
