@@ -45,7 +45,7 @@ def one_body_spin_ops(N):
         
         operator_list[n] = sz
         loc_sz_list.append(qutip.tensor(operator_list))        
-    return loc_globalid_list, loc_sx_list, loc_sy_list, loc_sz_list
+    return loc_global_id, loc_sx_list, loc_sy_list, loc_sz_list
 
 def spin_dephasing(big_list, N, gamma):
         loc_c_op_list = []; 
@@ -303,6 +303,17 @@ def choose_initial_state_type(op_list, N, build_all, x, gaussian, gr):
 def prod_basis(b1, b2):
     return [qutip.tensor(b,s) for b in b1 for s in b2]
 
+def mod_HS_inner_norm(A, rho0 = None):
+    
+    if rho0 is None:
+        rho0 = qutip.qeye(A.dims[0])
+        rho0 = rho0/rho0.tr()
+        
+    result = 0
+    result += (rho0 * (A * A.dag() + A.dag() * A)).tr()
+    
+    return result
+
 def mod_HS_inner_prod(A, B, rho0 = None):
     if A.dims[0][0]==B.dims[0][0]:
         pass
@@ -317,6 +328,12 @@ def mod_HS_inner_prod(A, B, rho0 = None):
     result += (rho0 * (A.dag() * B + B * A.dag())).tr()
     
     return result
+
+def HS_normalize_op(op, rho0):
+    
+    op = op/mod_HS_inner_prod(op, op, rho0)
+    
+    return op
 
 def mod_Hilbert_Schmidt_distance(rho, sigma, rho0 = None):
     if rho.dims[0][0]==sigma.dims[0][0]:
@@ -567,16 +584,14 @@ def recursive_basis(N, depth, H, seed_op):
             else:
                 loc_op = -1j * commutator(H, loc_op)
                 if (loc_op == null_matrix):
-                    print("Null operator obtained at", i, "-th level")
+                    print("Null operator obtained at the", i, "-th level")
             basis.append(loc_op)
             i += 1
     else:
         basis = None 
-        sys.exit("Incursive Depth parameter must be integer")
+        sys.exit("Incursive depth parameter must be integer")
         
     return basis
-
-### Tengo que ortogonalizarlo 
 
 def Hamiltonian_and_basis_obs(N, big_list, chain_type, Hamiltonian_paras, default_basis = True):
     
@@ -628,4 +643,5 @@ def H_ij_matrix(HH, basis, rho0):
     coeffs_list = []
     coeffs_list = [[mod_HS_inner_prod(op1, (HH * op2 - op2 * HH), rho0) for op1 in basis] for op2 in basis]
     coeffs_matrix = np.array(coeffs_list) # convert list to numpy array
+    
     return coeffs_matrix
