@@ -20,7 +20,7 @@ def ev_checks(rho):
     return a
 
 def is_density_op(rho):
-    return (qutip.isherm(rho) and (1 - rho.tr() < 10**-10) and ev_checks(rho))
+    return (qutip.isherm(rho) and (abs(1 - rho.tr()) < 10**-10) and ev_checks(rho))
 
 # In [3]: 
 
@@ -139,8 +139,11 @@ def Heisenberg_Hamiltonian(big_list, chain_type, N, visualization, Hamiltonian_p
               
     if visualization:
         qutip.hinton(H)
-              
-    return H
+        
+    if (qutip.isherm(H)): 
+        return H
+    else:
+        sys.exit("Non-Hermitian Hamiltonian obtained")
     
 # In [7]:
 
@@ -303,6 +306,26 @@ def choose_initial_state_type(op_list, N, build_all, x, gaussian, gr):
 def prod_basis(b1, b2):
     return [qutip.tensor(b,s) for b in b1 for s in b2]
 
+def commutator(A, B):
+    result = 0
+    if A.dims[0][0] == B.dims[0][0]: 
+        pass
+    else:
+        raise Exception("Incompatible Qobj dimensions")
+    result += A*B-B*A
+
+    return result
+
+def anticommutator(A, B):
+    result = 0
+    if A.dims[0][0] == B.dims[0][0]: 
+        pass
+    else:
+        raise Exception("Incompatible Qobj dimensions")
+    result += A*B+B*A
+
+    return result
+
 def mod_HS_inner_norm(A, rho0 = None):
     
     if rho0 is None:
@@ -323,9 +346,14 @@ def mod_HS_inner_prod(A, B, rho0 = None):
     if rho0 is None:
         rho0 = qutip.qeye(A.dims[0])
         rho0 = rho0/rho0.tr()
+    else:
+        if (is_density_op(rho0)):
+            pass
+        else:
+            sys.exit("rho0 is not a density op")
     
     result = 0
-    result += (rho0 * (A.dag() * B + B * A.dag())).tr()
+    result += (rho0 * .5 * anticommutator(A.dag(), B)).tr()
     
     return result
 
@@ -393,17 +421,8 @@ def bures(rho, sigma):
     else: 
         sys.exit("Singular input matrix")
     return val1
+
 # In [14]: 
-
-def commutator(A, B):
-    result = 0
-    if A.dims[0][0] == B.dims[0][0]: 
-        pass
-    else:
-        raise Exception("Incompatible Qobj dimensions")
-    result += A*B-B*A
-
-    return result
 
 def proj_op(K, basis, rho0):
     return sum([mod_HS_inner_prod(b, K,rho0) * b for b in basis])
@@ -637,11 +656,10 @@ def initial_conditions(basis):
     return coeff_list_t0, rho0
 
 # In [18]:
-
 def H_ij_matrix(HH, basis, rho0):
     
     coeffs_list = []
-    coeffs_list = [[mod_HS_inner_prod(op1, (HH * op2 - op2 * HH), rho0) for op1 in basis] for op2 in basis]
+    coeffs_list = [[mod_HS_inner_prod(op1, commutator(HH, op2), rho0) for op1 in basis] for op2 in basis]
     coeffs_matrix = np.array(coeffs_list) # convert list to numpy array
     
     return coeffs_matrix
