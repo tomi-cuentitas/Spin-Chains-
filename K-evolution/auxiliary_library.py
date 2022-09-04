@@ -9,6 +9,8 @@ import scipy.linalg as linalg
 
 # In [2]:
 
+### This module checks if the matrix is positive definite ie. if all its eigenvalues are positive
+
 def ev_checks(rho):
     a = bool; ev_list = linalg.eig(rho)[0]
     for i in range(len(ev_list)):
@@ -19,18 +21,37 @@ def ev_checks(rho):
             print("Eigenvalues not positive")
     return a
 
+### This module checks if the user-input quantum object, rho, is a density operator or not.
+### This is done by checking if it is a hermitian, positive definite, trace-one, matrix.
+### Due to numerical instabilities, it may be possible that the trace is not exactly one, even though it is supposed to be,
+### Therefore, a cut-off is implemented to determine if rho is, at least trace-wise, a matrix operator. 
+
 def is_density_op(rho):
     return (qutip.isherm(rho) and (abs(1 - rho.tr()) < 10**-10) and ev_checks(rho))
 
 # In [3]: 
 
+### Given an N-site spin chain, there are then 3N different, non-trivial, operators acting on the full Hilbert space.
+### N sigmax operators, N sigmay operators, N sigmaz operators, and a global identity operator. 
+### All these 3N+1-operators are constructed with a tensor product so that they all act on the full Hilbert space. 
+### All, but the global identity operator, act non-trivially only on one Hilbert subspace. 
+
 def one_body_spin_ops(N):
+    
+    ### Basic, one-site spin operators are constructed.
+    
     loc_sx_list = []; loc_sy_list = []; loc_sz_list = []; loc_globalid_list = []
     id2 = qutip.qeye(2)
     sx = .5*qutip.sigmax()
     sy = .5*qutip.sigmay()
     sz = .5*qutip.sigmaz()
-    loc_global_id = qutip.tensor([qutip.qeye(2) for k in range(N)])
+    
+    ### The global identity operator is constructed 
+    
+    loc_global_id = [qutip.tensor([qutip.qeye(2) for k in range(N)])]
+    
+    ### Lists of one-body operators are constructed, so that they all act on the full Hilbert space. This is done
+    ### via taking tensor products on lists of operators. 
     
     for n in range(N):
         operator_list = []
@@ -47,6 +68,9 @@ def one_body_spin_ops(N):
         loc_sz_list.append(qutip.tensor(operator_list))        
     return loc_global_id, loc_sx_list, loc_sy_list, loc_sz_list
 
+### This module is relevant only if a non-unitary Lindblad evolution is chosen, it constructs a list of 
+### collapse operators, with its corresponding collapse factors. In particular, sz collapse operators are chosen. 
+
 def spin_dephasing(big_list, N, gamma):
         loc_c_op_list = []; 
         loc_sz_list = big_list[3]
@@ -57,6 +81,9 @@ def spin_dephasing(big_list, N, gamma):
         return loc_c_op_list
 
 # In [4]: 
+
+### This module constructs all pair-wise combinations (ie. correlators) of non-trivial one-body operators (ie. sx, sy, sz operators only). 
+### There are N(N+1)/2 different correlators in an N-site spin chain.
 
 def all_two_body_spin_ops(big_list, N):
     loc_global_id_list, sx_list, sy_list, sz_list = big_list
@@ -82,6 +109,9 @@ def all_two_body_spin_ops(big_list, N):
 
 # In [5]: 
 
+### This module is redundant in its current form. It basically either constructs all two-body correlators 
+### or some subset of these. 
+
 def two_body_spin_ops(big_list, N, build_all = False):
     loc_list = []
     if build_all:
@@ -102,6 +132,8 @@ def two_body_spin_ops(big_list, N, build_all = False):
     return loc_list
 
 # In [6]: 
+
+### This module constructs the Heisenberg Hamiltonian for different types of systems, according to some user-inputed parameters. 
 
 def Heisenberg_Hamiltonian(big_list, chain_type, N, visualization, Hamiltonian_paras):
     spin_chain_type = ["XX", "XYZ", "XXZ", "XXX"]
@@ -144,22 +176,8 @@ def Heisenberg_Hamiltonian(big_list, chain_type, N, visualization, Hamiltonian_p
         return H
     else:
         sys.exit("Non-Hermitian Hamiltonian obtained")
-    
-# In [7]:
 
-def classical_ops(big_list, chain_type, N, Hamiltonian_paras):
-    H_H = Heisenberg_Hamiltonian(big_list, chain_type, N, False, Hamiltonian_paras)
-    sz_list = big_list[3]
-        
-    loc_x_op = sum((.5 + sz_list[a])*(a+1) for a in range(N))
-    loc_p_op = 1j * (loc_x_op*H_H - H_H*loc_x_op)
-    loc_comm_xp = .5*(loc_x_op*loc_p_op + loc_p_op*loc_x_op)
-    loc_corr_xp = -1j*(loc_x_op*loc_p_op - loc_p_op*loc_x_op)
-    loc_p_dot = 1j*(H_H * loc_p_op - loc_p_op * H_H)
-    
-    return loc_x_op, loc_p_op, loc_comm_xp, loc_corr_xp, loc_p_dot
-   
-# In [8]: 
+# In [7]: 
 
 natural = tuple('123456789')
 
@@ -192,7 +210,7 @@ def max_ent_basis(op_list, op_basis_order_is_two, N, rho0):
     print(a + "-body operator chosen")
     return basis
 
-# In [9]:
+# In [8]:
 
 def n_body_max_ent_state(big_list, gr, N, coeffs = list, build_all = True, visualization = False):
     K = 0; rho_loc = 0;
@@ -240,7 +258,7 @@ def n_body_max_ent_state(big_list, gr, N, coeffs = list, build_all = True, visua
         
     return rho_loc 
 
-# In [10]: 
+# In [9]: 
 
 def initial_state(big_list, N = 1, gaussian = True, gr = 1, x = .5, coeffs = list, psi0 = qutip.Qobj,
                   build_all = False, visualization=False):
@@ -267,7 +285,7 @@ def initial_state(big_list, N = 1, gaussian = True, gr = 1, x = .5, coeffs = lis
     
     return rho0  
 
-# In [11]:
+# In [10]: 
 
 def choose_initial_state_type(op_list, N, build_all, x, gaussian, gr):
     
@@ -301,7 +319,7 @@ def choose_initial_state_type(op_list, N, build_all, x, gaussian, gr):
             
     return rho0
 
-#In [12]:
+#In [11]:
 
 def prod_basis(b1, b2):
     return [qutip.tensor(b,s) for b in b1 for s in b2]
@@ -395,7 +413,7 @@ def base_orth(ops, rho0):
         
     return basis
 
-# In [13]: 
+# In [12]: 
 
 def logM(rho):
     if ev_checks(rho):
@@ -422,7 +440,7 @@ def bures(rho, sigma):
         sys.exit("Singular input matrix")
     return val1
 
-# In [14]: 
+# In [13]: 
 
 def proj_op(K, basis, rho0):
     return sum([mod_HS_inner_prod(b, K,rho0) * b for b in basis])
@@ -440,7 +458,7 @@ def rel_entropy(rho, sigma):
         raise Exception("Either rho or sigma not positive")
     return val.real
                 
-# In [15]:
+# In [14]:
         
 def maxent_rho(rho, basis):   
     def test(x, rho, basis):
@@ -479,7 +497,21 @@ def error_proj_state(rho, rho0, basis, distance=bures):
         print("fail error proj state")
         return None
     
-# In [16]: 
+# In [15]:
+
+###  
+
+def classical_ops(big_list, chain_type, N, Hamiltonian_paras):
+    H_H = Heisenberg_Hamiltonian(big_list, chain_type, N, False, Hamiltonian_paras)
+    sz_list = big_list[3]
+        
+    loc_x_op = sum((.5 + sz_list[a])*(a+1) for a in range(N))
+    loc_p_op = 1j * (loc_x_op*H_H - H_H*loc_x_op)
+    loc_comm_xp = .5*(loc_x_op*loc_p_op + loc_p_op*loc_x_op)
+    loc_corr_xp = -1j*(loc_x_op*loc_p_op - loc_p_op*loc_x_op)
+    loc_p_dot = 1j*(H_H * loc_p_op - loc_p_op * H_H)
+    
+    return loc_x_op, loc_p_op, loc_comm_xp, loc_corr_xp, loc_p_dot
 
 HS_modified = True
 
@@ -500,35 +532,45 @@ def spin_chain_ev(size, init_state, chain_type, Hamiltonian_paras, omega_1=3., o
                   gaussian = True, gr = 2, xng = .5, obs_basis = None, do_project = True):
     
     global rho
-    loc_globalid = qutip.tensor([qutip.qeye(2) for k in range(size)])
     build_all = True
-
+    
+    ### The algorithm starts by constructing all one-body spin operators, acting on the full N-particle Hilbert space
+    ### This means, it constructs the 3N + 1 one_body spins ops (N sigmax operators, N sigmay operators, N sigmaz operators
+    ### an the global identity operator
+    
     spin_big_list = one_body_spin_ops(size)
+    loc_globalid = one_body_spin_ops(size)[0][0]
     
     #Jx = Hamiltonian_paras[0]; Jy = Hamiltonian_paras[1]
     #Jz = Hamiltonian_paras[2]; h = Hamiltonian_paras[3] 
+    
+    ### Then, the algorithm either takes a user-input initial density matrix or it constructs a default one.
     
     if init_state is None:
         print("Processing default initial state")
         rho0 = choose_initial_state_type(spin_big_list, size, build_all, xng, gaussian, gr)
     else: 
         print("Processing custom initial state")
-        rho0 = init_state
-    print(rho0)
+        if (is_density_op(init_state)):
+            rho0 = init_state
+        else:
+            sys.exit("User input initial state not a density matrix")
     
-    basis = max_ent_basis(spin_big_list, two_body_basis, size, rho0)
-    print("Processing two-body basis")
-       
+    ### Then, the algorithm either takes a user-input choice for observables or it constructs a default one. 
+    
     if obs_basis is None: 
-        print("Processing default observable basis"),
+        print("Processing default observable basis")
         x_op, p_op, comm_xp, corr_xp, p_dot = classical_ops(spin_big_list, chain_type, size, Hamiltonian_paras)
-        obs = [x_op, p_op, comm_xp, corr_xp, p_dot]
+        obs = [x_op, p_op, comm_xp, corr_xp, p_dot] #, x_op**2,p_op**2, corr_op, p_dot]
     else:
         print("Processing custom observable basis")
         obs = obs_basis
-          #, x_op**2,p_op**2, corr_op, p_dot]
         
     sampling = max(int(10*max(1,omega_1, omega_2)*deltat), 10)
+    print("sampling:", sampling)
+    
+    ### If a unitary evolution is chosen, no colapse operators nor colapse factors are taken into account. 
+    ### Otherwise, a default sz-colapse operator list is chosen. 
     
     if unitary_ev: 
         print("Closed evolution chosen")
@@ -537,11 +579,19 @@ def spin_chain_ev(size, init_state, chain_type, Hamiltonian_paras, omega_1=3., o
         print("Open evolution chosen")
         c_op_list = spin_dephasing(spin_big_list, size, gamma)
         
-    rho = init_state                                                               ## // Á la Mauricio
+    rho = init_state                                                               
     approx_exp_vals = [[qutip.expect(op, rho) for op in obs]]
     ts= [0]
-
+    
+    ### If a projected evolution is desired, then a two-body spin operator basis is chosen. Otherwise, if the exact ev,
+    ### is desired, this step will be skipped. 
+    
+    if do_project:    
+        print("Processing two-body for proj ev")
+        basis = max_ent_basis(spin_big_list, two_body_basis, size, rho0)
+    
     for i in range(int(tmax/deltat)):
+        ### Heisenberg Hamiltonian is constructed 
         qutip.mesolve(H=Heisenberg_Hamiltonian(spin_big_list, chain_type, size, False, Hamiltonian_paras), 
                                rho0=rho, 
                                tlist=np.linspace(0,deltat, sampling), 
@@ -562,7 +612,8 @@ def spin_chain_ev(size, init_state, chain_type, Hamiltonian_paras, omega_1=3., o
         #print(qutip.entropy.entropy_vn(rho))
         newobs = [qutip.expect(rho, op) for op in obs]
         approx_exp_vals.append(newobs)
-    print(f"type rho={type(rho)}")
+        
+    #print(f"type rho={type(rho)}")
     result = {}
     result["ts"] = ts
     result["averages"] = np.array(approx_exp_vals)
@@ -572,8 +623,6 @@ def spin_chain_ev(size, init_state, chain_type, Hamiltonian_paras, omega_1=3., o
         title = f"{chain_type}-chain closed ev/Proj ev for N={size} spins" 
     else:
         title = f"{chain_type}-chain open ev/Proj ev for N={size} spins" 
-    
-    print("sampling:", sampling)
     
     #with open(title+".pkl","wb") as f:
     #    pickle.dump(result, f)
@@ -587,7 +636,7 @@ def spin_chain_ev(size, init_state, chain_type, Hamiltonian_paras, omega_1=3., o
     
     return title, ev_parameters, result
 
-# In [17]: 
+# In [16]: 
 
 def recursive_basis(N, depth, H, seed_op): 
     
@@ -655,11 +704,18 @@ def initial_conditions(basis):
     
     return coeff_list_t0, rho0
 
-# In [18]:
+# In [17]:
+
 def H_ij_matrix(HH, basis, rho0):
     
     coeffs_list = []
-    coeffs_list = [[mod_HS_inner_prod(op1, commutator(HH, op2), rho0) for op1 in basis] for op2 in basis]
+    ith_oprator_coeff_list = []
+    for i in range(len(basis)):
+        ith_operator_coeff_list = [me.mod_HS_inner_prod(basis[i], me.commutator(HH, op2), rho0) for op2 in basis]
+        coeffs_list.append(ith_operator_coeff_list)
+        ith_operator_coeff_list = []
+    
+    #coeffs_list = [[me.mod_HS_inner_prod(op1, me.commutator(HH, op2), rho0) for op1 in basis] for op2 in basis]
     coeffs_matrix = np.array(coeffs_list) # convert list to numpy array
     
-    return coeffs_matrix
+    return coeffs_list, coeffs_matrix
