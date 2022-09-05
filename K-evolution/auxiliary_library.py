@@ -433,7 +433,7 @@ def sqrtM(rho):
 
 def bures(rho, sigma):
     if (is_density_op(rho) and is_density_op(sigma)):
-        val1 = abs((me.sqrtM(rho)*me.sqrtM(sigma)).tr())
+        val1 = abs((sqrtM(rho)*sqrtM(sigma)).tr())
         val1 = max(min(val1,1.),-1.)
         val1 = np.arccos(val1)/np.pi
     else: 
@@ -711,11 +711,52 @@ def H_ij_matrix(HH, basis, rho0):
     coeffs_list = []
     ith_oprator_coeff_list = []
     for i in range(len(basis)):
-        ith_operator_coeff_list = [me.mod_HS_inner_prod(basis[i], me.commutator(HH, op2), rho0) for op2 in basis]
+        ith_operator_coeff_list = [mod_HS_inner_prod(basis[i], commutator(HH, op2), rho0) for op2 in basis]
         coeffs_list.append(ith_operator_coeff_list)
         ith_operator_coeff_list = []
     
-    #coeffs_list = [[me.mod_HS_inner_prod(op1, me.commutator(HH, op2), rho0) for op1 in basis] for op2 in basis]
+    #coeffs_list = [[mod_HS_inner_prod(op1, commutator(HH, op2), rho0) for op1 in basis] for op2 in basis]
     coeffs_matrix = np.array(coeffs_list) # convert list to numpy array
     
     return coeffs_list, coeffs_matrix
+
+def basis_orthonormality_check(basis, rho0):
+
+    ### No es del todo eficiente pero es O(N), siendo N el tamaño de la base
+    
+    all_herm = False
+    gram_diagonals_are_one = False
+    all_ops_orth = False
+    gram_matrix = []
+    
+    for i in range(len(basis)):
+        gram_matrix.append([mod_HS_inner_prod(basis[i], op, rho0) for op in basis])
+        if (qutip.isherm(basis[i])):
+            all_herm = True
+        else:
+            all_herm = False
+            print("The", i,"-th operator is non-hermitian \n")
+    
+    identity_matrix = np.full((len(basis), len(basis)), 1)
+    
+    for i in range(len(basis)): 
+        if (abs(gram_matrix[i][i] - 1) < 10**-10):
+            all_gram_diagonals_are_one = True
+        else:
+            all_gram_diagonals_are_one = False
+            print("The", i,"-th operator is not normalized \n")
+        
+    if (linalg.norm((np.identity(len(basis)) - gram_matrix) < 10**-10)):
+        all_ops_orth = True
+    else:
+        all_ops_orth = False
+        print("Not all operators are pair-wise orthogonal")
+    
+    if (all_herm and all_gram_diagonals_are_one and all_ops_orth):
+        print("The basis is orthonormal")
+    
+    return qutip.Qobj(gram_matrix)
+
+# Un pequeño test: si meto un operador no hermítico de prepo, saltan las alarmas correctamente
+# notsx0sx1 = 1j * spin_ops_list[1][0] * spin_ops_list[1][1]
+# mk_basis.popend()
