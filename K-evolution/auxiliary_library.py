@@ -722,7 +722,7 @@ def H_ij_matrix(HH, basis, rho0):
 
 def basis_orthonormality_check(basis, rho0):
 
-    ### No es del todo eficiente pero es O(N), siendo N el tamaño de la base
+    ### No es del todo eficiente pero es O(N), siendo N el tamaÃ±o de la base
     
     all_herm = False
     gram_diagonals_are_one = False
@@ -757,6 +757,6 @@ def basis_orthonormality_check(basis, rho0):
     
     return qutip.Qobj(gram_matrix)
 
-# Un pequeño test: si meto un operador no hermítico de prepo, saltan las alarmas correctamente
+# Un pequeÃ±o test: si meto un operador no hermÃ­tico de prepo, saltan las alarmas correctamente
 # notsx0sx1 = 1j * spin_ops_list[1][0] * spin_ops_list[1][1]
 # mk_basis.popend()
