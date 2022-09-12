@@ -638,7 +638,7 @@ def spin_chain_ev(size, init_state, chain_type, Hamiltonian_paras, omega_1=3., o
 
 # In [16]: 
 
-def recursive_basis(N, depth, H, seed_op): 
+def recursive_basis(N, depth, H, seed_op, rho0): 
     
     null_matrix = np.zeros([(2**N), (2**N)]) 
     null_matrix = qutip.Qobj(null_matrix.reshape((2**N, 2**N)), dims= [H.dims[0], H.dims[1]])
@@ -653,6 +653,7 @@ def recursive_basis(N, depth, H, seed_op):
                 loc_op = -1j * commutator(H, loc_op)
                 if (loc_op == null_matrix):
                     print("Null operator obtained at the", i, "-th level")
+            loc_op = (rho0 * loc_op).tr() - loc_op
             basis.append(loc_op)
             i += 1
     else:
@@ -722,7 +723,7 @@ def H_ij_matrix(HH, basis, rho0):
 
 def basis_orthonormality_check(basis, rho0):
 
-    ### No es del todo eficiente pero es O(N), siendo N el tamaÃ±o de la base
+    ### No es del todo eficiente pero es O(N), siendo N el tamaño de la base
     
     all_herm = False
     gram_diagonals_are_one = False
@@ -740,6 +741,9 @@ def basis_orthonormality_check(basis, rho0):
     identity_matrix = np.full((len(basis), len(basis)), 1)
     
     for i in range(len(basis)): 
+        if (abs( (rho0 * basis[i]).tr() - 0) > 10**-10):
+            print("Not mean-normalized operator at", i, "-th level")
+            print((rho0 * basis[i]).tr())
         if (abs(gram_matrix[i][i] - 1) < 10**-10):
             all_gram_diagonals_are_one = True
         else:
@@ -757,6 +761,6 @@ def basis_orthonormality_check(basis, rho0):
     
     return qutip.Qobj(gram_matrix)
 
-# Un pequeÃ±o test: si meto un operador no hermÃ­tico de prepo, saltan las alarmas correctamente
+# Un pequeño test: si meto un operador no hermítico de prepo, saltan las alarmas correctamente
 # notsx0sx1 = 1j * spin_ops_list[1][0] * spin_ops_list[1][1]
 # mk_basis.popend()
