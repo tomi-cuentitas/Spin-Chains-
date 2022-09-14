@@ -355,8 +355,8 @@ def mod_HS_inner_norm(A, rho0 = None):
     
     return result
 
-def mod_HS_inner_prod(A, B, rho0 = None):
-    if A.dims[0][0]==B.dims[0][0]:
+def HS_inner_prod(A, B, rho0 = None):
+    if (A.dims[0][0]==B.dims[0][0]):
         pass
     else:
         raise Exception("Incompatible Qobj dimensions")
@@ -371,13 +371,17 @@ def mod_HS_inner_prod(A, B, rho0 = None):
             sys.exit("rho0 is not a density op")
     
     result = 0
-    result += (rho0 * .5 * anticommutator(A.dag(), B)).tr()
+    
+    #if modified_form: 
+    #    result += (rho0 * .5 * anticommutator(A.dag(), B)).tr()
+    #else:
+    result += (rho0 * .5 * A.dag() * B).tr()
     
     return result
 
 def HS_normalize_op(op, rho0):
     
-    op = op/mod_HS_inner_prod(op, op, rho0)
+    op = op/HS_inner_prod(op, op, rho0)
     
     return op
 
@@ -402,9 +406,9 @@ def base_orth(ops, rho0):
     dim = ops[0].dims[0][0]
     basis = []
     for i, op in enumerate(ops): 
-        alpha = [mod_HS_inner_prod(op2, op, rho0) for op2 in basis]
+        alpha = [HS_inner_prod(op2, op, rho0) for op2 in basis]
         op_mod = op - sum([c*op2 for c, op2, in zip(alpha, basis)])
-        op_norm = np.sqrt(mod_HS_inner_prod(op_mod,op_mod,rho0))
+        op_norm = np.sqrt(HS_inner_prod(op_mod,op_mod,rho0))
         if op_norm<1.e-12:
             #pass
             continue
@@ -443,7 +447,7 @@ def bures(rho, sigma):
 # In [13]: 
 
 def proj_op(K, basis, rho0):
-    return sum([mod_HS_inner_prod(b, K,rho0) * b for b in basis])
+    return sum([HS_inner_prod(b, K,rho0) * b for b in basis])
 
 def rel_entropy(rho, sigma):
     if (ev_checks(rho) and ev_checks(sigma)):
@@ -712,7 +716,7 @@ def H_ij_matrix(HH, basis, rho0):
     coeffs_list = []
     ith_oprator_coeff_list = []
     for i in range(len(basis)):
-        ith_operator_coeff_list = [mod_HS_inner_prod(basis[i], commutator(HH, op2), rho0) for op2 in basis]
+        ith_operator_coeff_list = [HS_inner_prod(basis[i], commutator(HH, op2), rho0) for op2 in basis]
         coeffs_list.append(ith_operator_coeff_list)
         ith_operator_coeff_list = []
     
@@ -731,7 +735,7 @@ def basis_orthonormality_check(basis, rho0):
     gram_matrix = []
     
     for i in range(len(basis)):
-        gram_matrix.append([mod_HS_inner_prod(basis[i], op, rho0) for op in basis])
+        gram_matrix.append([HS_inner_prod(basis[i], op, rho0) for op in basis])
         if (qutip.isherm(basis[i])):
             all_herm = True
         else:
@@ -741,7 +745,7 @@ def basis_orthonormality_check(basis, rho0):
     identity_matrix = np.full((len(basis), len(basis)), 1)
     
     for i in range(len(basis)): 
-        if (abs( (rho0 * basis[i]).tr() - 0) > 10**-10):
+        if (abs((rho0 * basis[i]).tr() - 0) > 10**-10):
             print("Not mean-normalized operator at", i, "-th level")
             print((rho0 * basis[i]).tr())
         if (abs(gram_matrix[i][i] - 1) < 10**-10):
