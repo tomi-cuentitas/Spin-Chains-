@@ -135,8 +135,8 @@ def two_body_spin_ops(big_list, N, build_all = False):
 
 ### This module constructs the Heisenberg Hamiltonian for different types of systems, according to some user-inputed parameters. 
 
-def Heisenberg_Hamiltonian(big_list, chain_type, N, visualization, Hamiltonian_paras):
-    spin_chain_type = ["XX", "XYZ", "XXZ", "XXX"]
+def Heisenberg_Hamiltonian(big_list, chain_type, N, visualization, Hamiltonian_paras, closed_bcs = True):
+    spin_chain_type = ["XX", "XYZ", "XXZ", "XXX", "Anderson"]
     loc_globalid_list, sx_list, sy_list, sz_list = big_list       
           
     H = 0
@@ -146,26 +146,42 @@ def Heisenberg_Hamiltonian(big_list, chain_type, N, visualization, Hamiltonian_p
     H += sum(-.5* h[n] * sz_list[n] for n in range(N))
     
     if (chain_type in spin_chain_type): 
-        if chain_type == "XX":
+        if (chain_type == "XX"):
             H += sum(-.5* Jx[n] *(sx_list[n]*sx_list[n+1] 
                                  + sy_list[n]*sy_list[n+1]) for n in range(N-1))
+            if closed_bcs: 
+                H += .5* Jx[1] *(sx_list[N-1]*sx_list[1] + sy_list[N-1]*sy_list[1])
             
-        elif chain_type == "XXX":
+        elif (chain_type == "XXX"):
             H += sum(-.5* Jx[n] * (sx_list[n]*sx_list[n+1] 
                                  + sy_list[n]*sy_list[n+1]
                                  + sz_list[n]*sz_list[n+1]) for n in range(N-1))
+            if closed_bcs: 
+                H += .5* Jx[1] * (sx_list[N-1]*sx_list[1] 
+                                 + sy_list[N-1]*sy_list[1]
+                                 + sz_list[N-1]*sz_list[1])
         
-        elif chain_type == "XXZ":
+        elif (chain_type == "XXZ"):
             Jz =  Hamiltonian_paras[2] * 2 * np.pi * np.ones(N)
             H += sum(-.5 * Jx[n] * (sx_list[n] * sx_list[n+1] + sy_list[n] * sy_list[n+1]) 
                      -.5 * Jz[n] * (sz_list[n] * sz_list[n+1]) for n in range(N-1))
+            if closed_bcs: 
+                H += -.5 * Jx[1] * (sx_list[N-1] * sx_list[1] + sy_list[N-1] * sy_list[1]) 
+                -.5 * Jz[1] * (sz_list[N-1] * sz_list[1])
         
-        elif chain_type == "XYZ":
+        elif (chain_type == "XYZ"):
             Jy = Hamiltonian_paras[1] * 2 * np.pi * np.ones(N)
             Jz = Hamiltonian_paras[2] * 2 * np.pi * np.ones(N)
-            H += sum(-.5 * Jx[n] * (sx_list[n] * sx_list[n+1])
+            H += sum(-.5 * Jx[n] * (sx_list[n] * sx_list[n+1]) 
                      -.5 * Jy[n] * (sy_list[n] * sy_list[n+1]) 
                      -.5 * Jz[n] * (sz_list[n] * sz_list[n+1]) for n in range(N-1))
+            if closed_bcs: 
+                H += -.5 * Jx[1] * (sx_list[N-1] * sx_list[1])
+                -.5 * Jy[1] * (sy_list[N-1] * sy_list[1]) 
+                -.5 * Jz[2] * (sz_list[N-1] * sz_list[1])
+                
+        elif (chain_type == "Anderson"):
+            pass
     else:
         sys.exit("Currently not supported chain type")
               
