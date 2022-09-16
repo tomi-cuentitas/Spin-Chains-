@@ -33,6 +33,24 @@ def is_density_op(rho):
 def null_matrix_check(rho):
     return (linalg.norm(rho) < 10**-10)
 
+def commutator(A, B):
+    result = 0
+    if A.dims[0][0] == B.dims[0][0]: 
+        pass
+    else:
+        raise Exception("Incompatible Qobj dimensions")
+    result += A*B-B*A
+    return result
+
+def anticommutator(A, B):
+    result = 0
+    if A.dims[0][0] == B.dims[0][0]: 
+        pass
+    else:
+        raise Exception("Incompatible Qobj dimensions")
+    result += A*B+B*A
+    return result
+
 # In [3]: 
 
 ### Given an N-site spin chain, there are then 3N different, non-trivial, operators acting on the full Hilbert space.
@@ -375,26 +393,6 @@ def choose_initial_state_type(op_list, N, build_all, x, gaussian, gr):
 def prod_basis(b1, b2):
     return [qutip.tensor(b,s) for b in b1 for s in b2]
 
-def commutator(A, B):
-    result = 0
-    if A.dims[0][0] == B.dims[0][0]: 
-        pass
-    else:
-        raise Exception("Incompatible Qobj dimensions")
-    result += A*B-B*A
-
-    return result
-
-def anticommutator(A, B):
-    result = 0
-    if A.dims[0][0] == B.dims[0][0]: 
-        pass
-    else:
-        raise Exception("Incompatible Qobj dimensions")
-    result += A*B+B*A
-
-    return result
-
 def HS_inner_prod_t(op1, op2, rho0 = None): ### previous name: HS_inner_prod(A, B, rho0 = None):
     if (op1.dims[0][0]==op2.dims[0][0]):    ### Formally, this is the correct Hilbert-Schmidt inner product
         pass                                ### It is a complex valued inner product on the space of all endomorphisms 
@@ -554,17 +552,25 @@ def error_proj_state(rho, rho0, basis, distance=bures):
 
 ###  
 
-def classical_ops(op_list, chain_type, N, Hamiltonian_paras):
-    H_H = Heisenberg_Hamiltonian(op_list, chain_type, N, False, Hamiltonian_paras)
+def classical_ops(Hamiltonian, op_list, chain_type, N, Hamiltonian_paras):
+    #H_H = Heisenberg_Hamiltonian(op_list, chain_type, N, False, Hamiltonian_paras)
     sz_list = op_list[3]
-        
-    loc_x_op = sum((.5 + sz_list[a])*(a+1) for a in range(N))
-    loc_p_op = 1j * (loc_x_op*H_H - H_H*loc_x_op)
-    loc_comm_xp = .5*(loc_x_op*loc_p_op + loc_p_op*loc_x_op)
-    loc_corr_xp = -1j*(loc_x_op*loc_p_op - loc_p_op*loc_x_op)
-    loc_p_dot = 1j*(H_H * loc_p_op - loc_p_op * H_H)
     
-    return loc_x_op, loc_p_op, loc_comm_xp, loc_corr_xp, loc_p_dot
+    labels = ["x_op", "p_op", "comm_xp", "corr_xp", "p_dot"]
+    
+    cl_ops = []
+    cl_ops.append(sum((.5 + sz_list[a])*(a+1) for a in range(N)))
+    cl_ops.append(1j * commutator(cl_ops[0], Hamiltonian))
+    cl_ops.append(.5 * anticommutator(cl_ops[0], cl_ops[1]))
+    cl_ops.append(-1j * commutator(cl_ops[0], cl_ops[1]))
+    cl_ops.append(1j * commutator(Hamiltonian, cl_ops[1]))   
+    
+    for i in range(len(cl_ops)):
+        if qutip.isherm(cl_ops):
+            pass
+        else:
+            print(labels[i], "not hermitian")
+    return cl_ops
 
 HS_modified = True
 
