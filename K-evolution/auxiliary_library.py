@@ -51,6 +51,15 @@ def anticommutator(A, B):
     result += A*B+B*A
     return result
 
+def hamiltonian_comm_check(Hamiltonian, basis, labels = None):
+    if type(basis) is dict:
+        for key in basis: 
+            print("[H, ", key, "] = 0?: ", null_matrix_check(commutator(Hamiltonian, basis[key])))
+    if type(basis) is list:
+        for i in range(len(basis)):
+            print("[H, ", labels[i], "] = 0?: ", null_matrix_check(commutator(Hamiltonian, basis[i])))
+    return None
+
 # In [3]: 
 
 ### Given an N-site spin chain, there are then 3N different, non-trivial, operators acting on the full Hilbert space.
@@ -550,28 +559,57 @@ def error_proj_state(rho, rho0, basis, distance=bures):
     
 # In [15]:
 
-###  
+def legacy_classical_ops(n, Hamiltonian):
+    id_loc = qutip.qeye(2)
+    sz_loc = .5*qutip.sigmaz()
+    sx_loc = .5*qutip.sigmax()
+    sy_loc = .5*qutip.sigmay()
 
-def classical_ops(Hamiltonian, op_list, chain_type, N, Hamiltonian_paras):
-    #H_H = Heisenberg_Hamiltonian(op_list, chain_type, N, False, Hamiltonian_paras)
-    sz_list = op_list[3]
+    n_oc =  sum(qutip.tensor([id_loc for i in range(k)]+ 
+                     [(sz_loc + .5*id_loc)]+ 
+                     [id_loc for i in range(n-k-1)]
+                    ) for k in range(n-1))
+    x = sum(qutip.tensor([id_loc for i in range(k)]+ 
+                     [(k-n/2)*(sz_loc + .5*id_loc)]+ 
+                     [id_loc for i in range(n-k-1)]
+                    ) for k in range(n-1))
+    Mauricio_noc = sum([qutip.tensor([id_loc for i in range(k)]+ 
+                     [(sz_loc + .5*id_loc)]+ 
+                     [id_loc for i in range(n-k-1)]) for k in range(n-1)])
+    Tom_noc = sum([spin_ops_list[3][k] + .5 * spin_ops_list[0][0] for k in range(n-1)])
+    Mauriciox = sum(qutip.tensor([id_loc for i in range(k)]+ 
+                     [(k-n/2)*(sz_loc + .5*id_loc)]+ 
+                     [id_loc for i in range(n-k-1)]
+                    ) for k in range(n-1))
+    Tomix = sum((k-n/2)*(spin_ops_list[3][k] + .5 * spin_ops_list[0][0]) for k in range(n-1))
+    return None
+
+def classical_ops(Hamiltonian, N, op_list, centered_x_op = False):
     
-    labels = ["x_op", "p_op", "comm_xp", "corr_xp", "p_dot"]
+    identity_op = op_list[0][0]; sz_list = op_list[3]    
+    labels = ["x_op", "p_op", "n_oc_op", "comm_xp", "corr_xp", "p_dot"]
     
-    cl_ops = []
-    cl_ops.append(sum((.5 + sz_list[a])*(a+1) for a in range(N)))
-    cl_ops.append(1j * commutator(cl_ops[0], Hamiltonian))
-    cl_ops.append(.5 * anticommutator(cl_ops[0], cl_ops[1]))
-    cl_ops.append(-1j * commutator(cl_ops[0], cl_ops[1]))
-    cl_ops.append(1j * commutator(Hamiltonian, cl_ops[1]))   
+    cl_ops = {}
     
-    for i in range(len(cl_ops)):
-        if qutip.isherm(cl_ops):
+    if centered_x_op:
+        cl_ops["x_op"] = sum((.5 + sz_list[k])*(k+1) for k in range(len(sz_list)))
+    else:
+        cl_ops["x_op"] = sum((k-N/2)*(sz_list[k] + .5 * identity_op) for k in range(len(sz_list)-1)) 
+        
+    cl_ops["p_op"] = 1j * commutator(cl_ops["x_op"], Hamiltonian)
+    cl_ops["n_oc_op"] = sum([sz_list[k] + .5 * identity_op for k in range(len(sz_list)-1)])
+    cl_ops["comm_xp"] = .5 * anticommutator(cl_ops["x_op"], cl_ops["p_op"])
+    cl_ops["corr_xp"] = -1j * commutator(cl_ops["x_op"], cl_ops["p_op"])
+    cl_ops["p_dot"] = 1j * commutator(Hamiltonian, cl_ops["p_op"])
+    
+    
+    for i in range(len(labels)):
+        if qutip.isherm(cl_ops[labels[i]]):
             pass
         else:
             print(labels[i], "not hermitian")
-    return cl_ops
-
+    return cl_ops, labels
+    
 HS_modified = True
 
 class Result(object):
