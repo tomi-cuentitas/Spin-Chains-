@@ -51,14 +51,28 @@ def anticommutator(A, B):
     result += A*B+B*A
     return result
 
-def hamiltonian_comm_check(Hamiltonian, basis, labels = None):
+def Hamiltonian_comm_check(Hamiltonian, basis, labels = None, remove_null = True):
     if type(basis) is dict:
-        for key in basis: 
-            print("[H, ", key, "] = 0?: ", null_matrix_check(commutator(Hamiltonian, basis[key])))
+        for i in basis.copy(): 
+            print("[H, ", i, "] = 0?: ", null_matrix_check(commutator(Hamiltonian, basis[i])))
+            if remove_null and null_matrix_check(commutator(Hamiltonian, basis[i])):
+                del basis[i]
+                print(i, "basis element deleted")
     if type(basis) is list:
         for i in range(len(basis)):
             print("[H, ", labels[i], "] = 0?: ", null_matrix_check(commutator(Hamiltonian, basis[i])))
-    return None
+            if remove_null and null_matrix_check(commutator(Hamiltonian, basis[key])):
+                basis.pop()
+    return basis
+
+def basis_hermitian_check(basis):
+    if type(basis) is dict:
+        basis = [basis[key] for key in basis]
+    a = False
+    for i in range(len(basis)):
+        a = qutip.isherm(basis[i])
+    
+    return a
 
 # In [3]: 
 
@@ -67,7 +81,7 @@ def hamiltonian_comm_check(Hamiltonian, basis, labels = None):
 ### All these 3N+1-operators are constructed with a tensor product so that they all act on the full Hilbert space. 
 ### All, but the global identity operator, act non-trivially only on one Hilbert subspace. 
 
-def one_body_spin_ops(N):
+def one_body_spin_ops(size):
     
     ### Basic, one-site spin operators are constructed.
     
@@ -79,14 +93,14 @@ def one_body_spin_ops(N):
     
     ### The global identity operator is constructed 
     
-    loc_global_id = [qutip.tensor([qutip.qeye(2) for k in range(N)])]
+    loc_global_id = [qutip.tensor([qutip.qeye(2) for k in range(size)])]
     
     ### Lists of one-body operators are constructed, so that they all act on the full Hilbert space. This is done
     ### via taking tensor products on lists of operators. 
     
-    for n in range(N):
+    for n in range(size):
         operator_list = []
-        for m in range(N):
+        for m in range(size):
             operator_list.append(id2)
         loc_globalid_list.append(loc_global_id)
         operator_list[n] = sx
@@ -102,12 +116,12 @@ def one_body_spin_ops(N):
 ### This module is relevant only if a non-unitary Lindblad evolution is chosen, it constructs a list of 
 ### collapse operators, with its corresponding collapse factors. In particular, sz collapse operators are chosen. 
 
-def spin_dephasing(op_list, N, gamma):
+def spin_dephasing(op_list, size, gamma):
         loc_c_op_list = []; 
         loc_sz_list = op_list[3]
         
-        collapse_weights = abs(gamma) * np.ones(N)
-        loc_c_op_list = [np.sqrt(collapse_weights[n]) * loc_sz_list[n] for n in range(N)]
+        collapse_weights = abs(gamma) * np.ones(size)
+        loc_c_op_list = [np.sqrt(collapse_weights[n]) * loc_sz_list[n] for n in range(size)]
     
         return loc_c_op_list
 
@@ -116,22 +130,22 @@ def spin_dephasing(op_list, N, gamma):
 ### This module constructs all pair-wise combinations (ie. correlators) of non-trivial one-body operators (ie. sx, sy, sz operators only). 
 ### There are N(N+1)/2 different correlators in an N-site spin chain.
 
-def all_two_body_spin_ops(op_list, N):
+def all_two_body_spin_ops(op_list, size):
     loc_global_id_list, sx_list, sy_list, sz_list = op_list
       
     pauli_four_vec = [loc_global_id_list, sx_list, sy_list, sz_list];
         
     sxsa_list = []; sysa_list = []; szsa_list = []; two_body_s = [];
     
-    sxsa_list = [sx_list[n] * pauli_four_vec[a][b] for n in range(N)
+    sxsa_list = [sx_list[n] * pauli_four_vec[a][b] for n in range(size)
                                                    for a in range(len(pauli_four_vec))
                                                    for b in range(len(pauli_four_vec[a]))]
     
-    sysa_list = [sy_list[n] * pauli_four_vec[a][b] for n in range(N)
+    sysa_list = [sy_list[n] * pauli_four_vec[a][b] for n in range(size)
                                                    for a in range(len(pauli_four_vec))
                                                    for b in range(len(pauli_four_vec[a]))]
     
-    szsa_list = [sz_list[n] * pauli_four_vec[a][b] for n in range(N)
+    szsa_list = [sz_list[n] * pauli_four_vec[a][b] for n in range(size)
                                                    for a in range(len(pauli_four_vec))
                                                    for b in range(len(pauli_four_vec[a]))]
     
@@ -143,7 +157,7 @@ def all_two_body_spin_ops(op_list, N):
 ### This module is redundant in its current form. It basically either constructs all two-body correlators 
 ### or some subset of these. 
 
-def two_body_spin_ops(op_list, N, build_all = False):
+def two_body_spin_ops(op_list, size, build_all = False):
     loc_list = []
     if build_all:
         loc_list = all_two_body_spin_ops(op_list, N)
@@ -151,12 +165,12 @@ def two_body_spin_ops(op_list, N, build_all = False):
         globalid_list, sx_list, sy_list, sz_list = op_list       
         loc_sxsx = []; loc_sysy = []; loc_szsz = [];
         
-        loc_sxsx = [sx_list[n] * sx_list[m] for n in range(N)
-                                            for m in range(N)]
-        loc_sysy = [sy_list[n] * sy_list[m] for n in range(N)
-                                            for m in range(N)]
-        loc_szsz = [sz_list[n] * sz_list[m] for n in range(N)
-                                            for m in range(N)]
+        loc_sxsx = [sx_list[n] * sx_list[m] for n in range(size)
+                                            for m in range(size)]
+        loc_sysy = [sy_list[n] * sy_list[m] for n in range(size)
+                                            for m in range(size)]
+        loc_szsz = [sz_list[n] * sz_list[m] for n in range(size)
+                                            for m in range(size)]
         loc_list.append(loc_sxsx)
         loc_list.append(loc_sysy)
         loc_list.append(loc_szsz)
@@ -166,11 +180,11 @@ def two_body_spin_ops(op_list, N, build_all = False):
 
 ### This module constructs the Heisenberg Hamiltonian for different types of systems, according to some user-inputed parameters. 
 
-def Heisenberg_Hamiltonian(op_list, chain_type, N, visualization, Hamiltonian_paras, closed_bcs = True):
+def Heisenberg_Hamiltonian(op_list, chain_type, size, Hamiltonian_paras, closed_bcs = True, visualization = False):
     spin_chain_type = ["XX", "XYZ", "XXZ", "XXX", "Anderson"]
     loc_globalid_list, sx_list, sy_list, sz_list = op_list       
           
-    H = 0    
+    H = 0; N = size
     Jx = Hamiltonian_paras[0] * 2 * np.pi #* np.ones(N)
     h =  Hamiltonian_paras[3] * 2 * np.pi #* np.ones(N)
     H += sum(-.5* h * sz_list[n] for n in range(N-1)) # Zeeman interaction 
@@ -254,6 +268,93 @@ def Heisenberg_Hamiltonian_tests(spin_ops_list, N):
     print("--- Test concluded in: %s seconds ---" % (time.time() - start_time))
     
     return all_hamiltonians_are_hermitian
+
+#In [7]:
+
+def prod_basis(b1, b2):
+    return [qutip.tensor(b,s) for b in b1 for s in b2]
+
+def HS_inner_prod_t(op1, op2, rho0 = None): ### previous name: HS_inner_prod(A, B, rho0 = None):
+    if (op1.dims[0][0]==op2.dims[0][0]):    ### Formally, this is the correct Hilbert-Schmidt inner product
+        pass                                ### It is a complex valued inner product on the space of all endomorphisms 
+    else:                                   ### acting on the N-partite Hilbert space 
+        raise Exception("Incompatible Qobj dimensions")
+    
+    if rho0 is None:
+        rho0 = qutip.qeye(op1.dims[0])
+        rho0 = rho0/rho0.tr()        
+    else:
+        if (is_density_op(rho0)):
+            pass
+        else:
+            sys.exit("rho0 is not a density op")
+        
+    result = 0
+    result += (rho0 * (op1.dag() * op2)).tr()    
+    return result
+
+def HS_inner_prod_r(op1, op2, rho0 = None): ### This inner product is real valued, provided both op1 and op2 are hermitian
+    if (op1.dims[0][0]==op2.dims[0][0]):    ### and is easier to compute when dealing with spin chains, as the operator themselves 
+        pass                                ### can be written as tensor products of local operators. A global-trace is then a product 
+    else:                                   ### of traces over local Hilbert spaces
+        raise Exception("Incompatible Qobj dimensions")
+    
+    if rho0 is None:
+        rho0 = qutip.qeye(op1.dims[0])
+        rho0 = rho0/rho0.tr()
+    else:
+        if (is_density_op(rho0)):
+            pass
+        else:
+            sys.exit("rho0 is not a density op")
+        
+    result = 0
+    result += .5 * (rho0 * anticommutator(op1.dag(), op2)).tr()    
+    return result
+
+def HS_inner_norm(op, rho0, sc_prod): ### previous name: mod_HS_inner_norm
+    return sc_prod(op, op, rho0)
+
+def HS_normalize_op(op, rho0, sc_prod):
+    op = op/sc_prod(op, op, rho0)
+    return op
+
+def HS_distance(rho, sigma, rho0, sc_prod):
+    if rho.dims[0][0]==sigma.dims[0][0]:
+        pass
+    else:
+        raise Exception("Incompatible Qobj dimensions")
+    
+    return sc_prod(rho, sigma, rho0)
+
+def gs_basis(basis0, rho0, sc_prod):
+    new_basis = []
+    
+    for b in basis0:
+        nb = b - sum(sc_prod(w, b, rho0)*w for w in new_basis)
+        norm = sc_prod(nb, nb, rho0)**.5
+        if norm >1.e-10:
+            new_basis.append(nb/norm)
+    return new_basis
+
+def base_orth(ops, rho0, sc_prod, visualization = False):
+    
+    if isinstance(ops, dict):
+        ops = [ops[key] for key in ops]
+    if isinstance(ops[0], list):
+        ops = [op for op1l in ops for op in op1l]
+    dim = ops[0].dims[0][0]
+    basis = []
+    for i, op in enumerate(ops): 
+        alpha = [sc_prod(op2, op, rho0) for op2 in basis]
+        if visualization:
+            print(alpha)
+        op_mod = op - sum([c*op2 for c, op2, in zip(alpha, basis)])
+        op_norm = np.sqrt(sc_prod(op_mod,op_mod,rho0))
+        if op_norm > 1.e-10:
+            op_mod = op_mod/(op_norm)
+            basis.append(op_mod)
+    return basis
 
 # In [7]: 
 
@@ -396,82 +497,6 @@ def choose_initial_state_type(op_list, N, build_all, x, gaussian, gr):
          print(statement + " initial state chosen")
             
     return rho0
-
-#In [11]:
-
-def prod_basis(b1, b2):
-    return [qutip.tensor(b,s) for b in b1 for s in b2]
-
-def HS_inner_prod_t(op1, op2, rho0 = None): ### previous name: HS_inner_prod(A, B, rho0 = None):
-    if (op1.dims[0][0]==op2.dims[0][0]):    ### Formally, this is the correct Hilbert-Schmidt inner product
-        pass                                ### It is a complex valued inner product on the space of all endomorphisms 
-    else:                                   ### acting on the N-partite Hilbert space 
-        raise Exception("Incompatible Qobj dimensions")
-    
-    if rho0 is None:
-        rho0 = qutip.qeye(op1.dims[0])
-        rho0 = rho0/rho0.tr()        
-    else:
-        if (is_density_op(rho0)):
-            pass
-        else:
-            sys.exit("rho0 is not a density op")
-        
-    result = 0
-    result += (rho0 * (op1.dag() * op2)).tr()    
-    return result
-
-def HS_inner_prod_r(op1, op2, rho0 = None): ### This inner product is real valued, provided both op1 and op2 are hermitian
-    if (op1.dims[0][0]==op2.dims[0][0]):    ### and is easier to compute when dealing with spin chains, as the operator themselves 
-        pass                                ### can be written as tensor products of local operators. A global-trace is then a product 
-    else:                                   ### of traces over local Hilbert spaces
-        raise Exception("Incompatible Qobj dimensions")
-    
-    if rho0 is None:
-        rho0 = qutip.qeye(op1.dims[0])
-        rho0 = rho0/rho0.tr()
-    else:
-        if (is_density_op(rho0)):
-            pass
-        else:
-            sys.exit("rho0 is not a density op")
-        
-    result = 0
-    result += .5 * (rho0 * anticommutator(op1.dag(), op2)).tr()    
-    return result
-
-def HS_inner_norm(op, rho0, sc_prod): ### previous name: mod_HS_inner_norm
-    return sc_prod(op, op, rho0)
-
-def HS_normalize_op(op, rho0, sc_prod):
-    op = op/sc_prod(op, op, rho0)
-    return op
-
-def HS_distance(rho, sigma, rho0, sc_prod):
-    if rho.dims[0][0]==sigma.dims[0][0]:
-        pass
-    else:
-        raise Exception("Incompatible Qobj dimensions")
-    
-    return sc_prod(rho, sigma, rho0)
-
-def base_orth(ops, rho0, sc_prod, visualization = False):
-    if isinstance(ops[0], list):
-        ops = [op for op1l in ops for op in op1l]
-    dim = ops[0].dims[0][0]
-    basis = []
-    for i, op in enumerate(ops): 
-        alpha = [sc_prod(op2, op, rho0) for op2 in basis]
-        if visualization:
-            print(alpha)
-        op_mod = op - sum([c*op2 for c, op2, in zip(alpha, basis)])
-        op_norm = np.sqrt(sc_prod(op_mod,op_mod,rho0))
-        if op_norm<1.e-12:
-            #pass
-            continue
-        op_mod = op_mod/(op_norm)
-        basis.append(op_mod)
-    return basis
 
 # In [12]: 
 
