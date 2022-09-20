@@ -113,7 +113,7 @@ def one_body_spin_ops(size):
         loc_sz_list.append(qutip.tensor(operator_list))        
     return loc_global_id, loc_sx_list, loc_sy_list, loc_sz_list
 
-### This module is relevant only if a non-unitary Lindblad evolution is chosen, it constructs a list of 
+### This module is relevant only if a non-unitary Lindblad evolution is chosen, it construcf a list of 
 ### collapse operators, with its corresponding collapse factors. In particular, sz collapse operators are chosen. 
 
 def spin_dephasing(op_list, size, gamma):
@@ -615,7 +615,6 @@ def classical_ops(Hamiltonian, N, op_list, centered_x_op = False):
     labels = ["x_op", "p_op", "n_oc_op", "comm_xp", "corr_xp", "p_dot"]
     
     cl_ops = {}
-    
     if centered_x_op:
         cl_ops["x_op"] = sum((.5 + sz_list[k])*(k+1) for k in range(len(sz_list)))
     else:
@@ -626,7 +625,6 @@ def classical_ops(Hamiltonian, N, op_list, centered_x_op = False):
     cl_ops["comm_xp"] = .5 * anticommutator(cl_ops["x_op"], cl_ops["p_op"])
     cl_ops["corr_xp"] = -1j * commutator(cl_ops["x_op"], cl_ops["p_op"])
     cl_ops["p_dot"] = 1j * commutator(Hamiltonian, cl_ops["p_op"])
-    
     
     for i in range(len(labels)):
         if qutip.isherm(cl_ops[labels[i]]):
