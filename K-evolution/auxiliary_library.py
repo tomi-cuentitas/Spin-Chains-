@@ -643,11 +643,14 @@ class Result(object):
         self.projrho_inst_app = None 
 
 rhos = []
+    
 def callback(t, rhot):
+    global rho
     global rhos
+    rho = rhot
     rhos.append(rhot)
 
-def spin_chain_ev(size, init_state, chain_type, Hamiltonian_paras, omega_1=3., omega_2=3., temp=1, tmax = 250, deltat = 10, 
+def spin_chain_ev(size, init_state, chain_type, closed_bcs, Hamiltonian_paras, omega_1=3., omega_2=3., temp=1, tmax = 250, deltat = 10, 
                   two_body_basis = True, unitary_ev = False, gamma = 1*np.e**-2,
                   gaussian = True, gr = 2, xng = .5, sc_prod = HS_inner_prod_r, obs_basis = None, do_project = True):
     
@@ -711,8 +714,10 @@ def spin_chain_ev(size, init_state, chain_type, Hamiltonian_paras, omega_1=3., o
         basis = max_ent_basis(spin_big_list, two_body_basis, size, rho0)
     
     for i in range(int(tmax/deltat)):
-        ### Heisenberg Hamiltonian is constructed 
-        qutip.mesolve(H=Heisenberg_Hamiltonian(spin_big_list, chain_type, size, False, Hamiltonian_paras), 
+        ### Heisenberg Hamiltonian is constructed
+        qutip.mesolve(H=Heisenberg_Hamiltonian(op_list = spin_big_list, chain_type = chain_type,
+                                size = size, Hamiltonian_paras = Hamiltonian_paras,
+                                closed_bcs = closed_bcs, visualization = False),
                                rho0=rho, 
                                tlist=np.linspace(0,deltat, sampling), 
                                c_ops=c_op_list, 
@@ -722,18 +727,17 @@ def spin_chain_ev(size, init_state, chain_type, Hamiltonian_paras, omega_1=3., o
         ts.append(deltat*i)
         if do_project:
             rho = proj_op(logM(rho), basis, rho0, sc_prod)
-            #rho = proj_op(logM(rho), basis, loc_globalid, sc_prod)
             e0 = max(rho.eigenenergies())
             rho = rho - loc_globalid * e0
             rho = rho.expm()
             trrho = (2.*rho.tr())
             rho = (rho+rho.dag())/trrho
+            rhos.append(rho)
 
         #print(qutip.entropy.entropy_vn(rho))
         newobs = [qutip.expect(rho, op) for op in obs]
         approx_exp_vals.append(newobs)
         
-    #print(f"type rho={type(rho)}")
     result = {}
     result["ts"] = ts
     result["averages"] = np.array(approx_exp_vals)
@@ -829,10 +833,12 @@ def initial_conditions(basis):
 
 def H_ij_matrix(HH, basis, rho0, sc_prod):
     
+    #np.array([[me.HS_inner_prod_r(op2, -1j*(H_H*op1-op1*H_H),rho_ref) for op1 in basis_orth] for op2 in basis_orth])
+    
     coeffs_list = []
     ith_oprator_coeff_list = []
     for i in range(len(basis)):
-        ith_operator_coeff_list = [sc_prod(basis[i], commutator(HH, op2), rho0) for op2 in basis]
+        ith_operator_coeff_list = [sc_prod(basis[i], -1j * commutator(HH, op2), rho0) for op2 in basis]
         coeffs_list.append(ith_operator_coeff_list)
         ith_operator_coeff_list = []
     
