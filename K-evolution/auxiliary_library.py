@@ -12,7 +12,9 @@ import scipy.linalg as linalg
 
 ### This module checks if the matrix is positive definite ie. if all its eigenvalues are positive
 
-def ev_checks(rho):
+### version mala
+
+def ev_checks_legacy(rho):
     a = bool; ev_list = linalg.eig(rho)[0]
     for i in range(len(ev_list)):
         if (ev_list[i] > 0):
@@ -20,6 +22,19 @@ def ev_checks(rho):
         else:
             a = False
             print("Eigenvalues not positive")
+    return a
+
+### version mala
+
+def ev_checks(rho):
+    a = False; ev_list = linalg.eig(rho)[0]
+    for i in range(len(ev_list)):
+        a = ev_list[i] > 0
+        if not a:
+            a = False
+            sys.exit("Eigenvalues not positive")
+    #if a:
+    #    print("Input matrix is a density matrix")
     return a
 
 ### This module checks if the user-input quantum object, rho, is a density operator or not.
@@ -326,16 +341,6 @@ def HS_distance(rho, sigma, rho0, sc_prod):
         raise Exception("Incompatible Qobj dimensions")
     
     return sc_prod(rho, sigma, rho0)
-
-def gs_basis(basis0, rho0, sc_prod):
-    new_basis = []
-    
-    for b in basis0:
-        nb = b - sum(sc_prod(w, b, rho0)*w for w in new_basis)
-        norm = sc_prod(nb, nb, rho0)**.5
-        if norm >1.e-10:
-            new_basis.append(nb/norm)
-    return new_basis
 
 def base_orth(ops, rho0, sc_prod, visualization = False):
     
