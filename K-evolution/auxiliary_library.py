@@ -791,49 +791,6 @@ def recursive_basis(N, depth, H, seed_op, rho0):
         
     return basis
 
-def Hamiltonian_and_basis_obs(N, op_list, chain_type, Hamiltonian_paras, default_basis = True):
-    
-    H_H = Heisenberg_Hamiltonian(op_list, chain_type, N, False, Hamiltonian_paras)
-    
-    sx_list = op_list[1]
-    sz_list = op_list[3]
-    basis = []
-    
-    if default_basis:
-        Mz = sum(sz_list[i] for i in range(N))
-        loc_magnetization = [op_list[3][i] for i in range(len(op_list[3]))]
-        NN_interactions_on_x = [sx_list[i]*sx_list[i+1] + sx_list[i+1]*sx_list[i]  for i in range(3)] + [sx_list[3]*sx_list[0]+sx_list[0]*sx_list[3]]
-            
-        basis.append(Mz)
-        for i in range(len(loc_magnetization)):
-            basis.append(loc_magnetization[i])
-        for j in range(len(NN_interactions_on_x)):
-            basis.append(NN_interactions_on_x[j])
-        #basis.append([["1"]])
-    else:
-        basis = None
-    
-    for i in range(len(basis)):
-        if (type(basis[i]) != list):
-            continue
-        else:
-            sys.exit("Error: basis is a list of lists")
-    
-    return H_H, basis
-
-def initial_conditions(basis):
-    coeff_list_t0 = [np.random.rand() for i in range(len(basis))]
-    rho0 = (sum(np.pi * coeff_list_t0[i] * basis[i] for i in range(len(basis)))).expm()
-    rho0 = rho0/rho0.tr()
-
-    if is_density_op(rho0):
-        pass
-    else:
-        pass
-        #sys.exit("Not a density operator")
-    
-    return coeff_list_t0, rho0
-
 # In [17]:
 
 def H_ij_matrix(HH, basis, rho0, sc_prod):
@@ -863,11 +820,12 @@ def basis_orthonormality_check(basis, rho0, sc_prod):
     
     for i in range(len(basis)):
         gram_matrix.append([sc_prod(basis[i], op, rho0) for op in basis])
-        if (qutip.isherm(basis[i])):
+        if (qutip.isherm(basis[i]) or linalg.norm(basis[i] - basis[i].dag()) < 1e-6):
             all_herm = True
         else:
             all_herm = False
             print("The", i,"-th operator is non-hermitian \n")
+            basis[i] = .5 * (basis[i] + basis[i].dag())
     
     identity_matrix = np.full((len(basis), len(basis)), 1)
     
@@ -880,7 +838,7 @@ def basis_orthonormality_check(basis, rho0, sc_prod):
         else:
             all_gram_diagonals_are_one = False
             print("The", i,"-th operator is not normalized \n")
-        
+            
     if (linalg.norm((np.identity(len(basis)) - gram_matrix) < 10**-10)):
         all_ops_orth = True
     else:
@@ -888,10 +846,65 @@ def basis_orthonormality_check(basis, rho0, sc_prod):
         print("Not all operators are pair-wise orthogonal")
     
     if (all_herm and all_gram_diagonals_are_one and all_ops_orth):
-        print("The basis is orthonormal")
+        print("The basis is orthonormal and hermitian")
     
-    return qutip.Qobj(gram_matrix)
+    return basis, qutip.Qobj(gram_matrix)
 
 # Un pequeño test: si meto un operador no hermítico de prepo, saltan las alarmas correctamente
 # notsx0sx1 = 1j * spin_ops_list[1][0] * spin_ops_list[1][1]
 # mk_basis.popend()
+
+# In [16]:
+
+def build_rho0_from_basis(basis):
+    
+    phi0 = [0] + [np.random.rand() for i in range(len(basis)-1)]
+    rho0 = (-sum( f*op for f,op in zip(phi0, basis))).expm()
+    phi0[0] = np.log(rho0.tr())
+    rho0 = (-sum( f*op for f,op in zip(phi0, basis))).expm()
+    
+    if (me.is_density_op(rho0)):
+        pass
+    else:
+        sys.exit("Not a valid density op")
+    return phi0, rho0
+
+def semigroup_phit_sol(phi0, Htensor, ts):
+    
+    Phi_vector_solution = []
+    Phi_vector_solution.append(np.array(phi0))
+    
+    for i in range(len(ts)-1):
+        a = (ts[i+1] * Htensor).expm() * Phi_vector_solution[0]
+        Phi_vector_solution.append(a)
+    
+    return Phi_vector_solution
+
+def semigroup_rhot_sol(rho0, Phi_vector, basis):
+    
+    rho_at_timet = []
+    rho_at_timet.append(rho0)
+    
+    for i in range(len(Phi_vector)):
+        rhot= (-sum( f*op for f,op in zip(Phi_vector[i], basis))).expm()
+        rhot = rhot/rhot.tr()
+        rho_at_timet.append(rhot)
+    
+    return rho_at_timet
+
+def semigroup_rhos_test(rho_list, visualization_nonherm, ts):
+    
+    non_densitiness = []
+    for t in range(len(rho_list)-1):
+        non_densitiness.append(linalg.norm(rho_list[t] - rho_list[t].dag())/(linalg.norm(rho_list[t])))
+        rho_list[t] = .5 * (rho_list[t] + rho_list[t].dag())
+            
+    if visualization_nonherm:
+        x2 = np.arange(len(non_densitiness))
+        y2 = non_densitiness
+        fig2, ax2 = plt.subplots()
+        ax2.plot(x2,y2)
+        ax2.legend(loc=0)
+        ax2.set_title("Non-hermitian measure for semigroup states")
+    
+    return rho_list
