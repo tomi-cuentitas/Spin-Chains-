@@ -3,6 +3,7 @@
 import qutip
 import numpy as np
 import scipy.optimize as opt 
+import matplotlib.pyplot as plt
 import pickle
 import time as time
 import sys
@@ -11,20 +12,6 @@ import scipy.linalg as linalg
 # In [2]:
 
 ### This module checks if the matrix is positive definite ie. if all its eigenvalues are positive
-
-### version mala
-
-def ev_checks_legacy(rho):
-    a = bool; ev_list = linalg.eig(rho)[0]
-    for i in range(len(ev_list)):
-        if (ev_list[i] > 0):
-            a = True
-        else:
-            a = False
-            print("Eigenvalues not positive")
-    return a
-
-### version mala
 
 def ev_checks(rho):
     a = False; ev_list = linalg.eig(rho)[0]
@@ -44,6 +31,9 @@ def ev_checks(rho):
 
 def is_density_op(rho):
     return (qutip.isherm(rho) and (abs(1 - rho.tr()) < 10**-10) and ev_checks(rho))
+
+def non_hermitianess_measure(rho):
+    return linalg.norm(rho - rho.dag())
 
 def null_matrix_check(rho):
     return (linalg.norm(rho) < 10**-10)
@@ -86,7 +76,6 @@ def basis_hermitian_check(basis):
     a = False
     for i in range(len(basis)):
         a = qutip.isherm(basis[i])
-    
     return a
 
 # In [3]: 
@@ -767,26 +756,20 @@ def spin_chain_ev(size, init_state, chain_type, closed_bcs, Hamiltonian_paras, o
 
 # In [16]: 
 
-def recursive_basis(N, depth, H, seed_op, rho0): 
+def recursive_basis(depth, Hamiltonian, seed_op, rho0): 
     
-    null_matrix = np.zeros([(2**N), (2**N)]) 
-    null_matrix = qutip.Qobj(null_matrix.reshape((2**N, 2**N)), dims= [H.dims[0], H.dims[1]])
-    basis = []
-    i = 0
-    
-    if (type(depth) == int):
-        while (i != depth):
-            if (i == 0):
-                loc_op = seed_op
-            else:
-                loc_op = -1j * commutator(H, loc_op)
-                if (loc_op == null_matrix):
-                    print("Null operator obtained at the", i, "-th level")
-            loc_op = (rho0 * loc_op).tr() - loc_op
+    basis = [seed_op]; loc_op = 0
+    if type(depth == int):
+        for i in range(1, depth):
+            loc_op = -1j * commutator(Hamiltonian, basis[i-1])
+            if (linalg.norm(loc_op) < 1e-6):
+                print("Operator at depth", i, "is null")
+                loc_op = None
+                continue
+            loc_op = (loc_op * rho0).tr() - loc_op
             basis.append(loc_op)
-            i += 1
     else:
-        basis = None 
+        basis 
         raise Exception("Incursive depth parameter must be integer")
         
     return basis
@@ -820,11 +803,11 @@ def basis_orthonormality_check(basis, rho0, sc_prod):
     
     for i in range(len(basis)):
         gram_matrix.append([sc_prod(basis[i], op, rho0) for op in basis])
-        if (qutip.isherm(basis[i]) or linalg.norm(basis[i] - basis[i].dag()) < 1e-6):
+        if (qutip.isherm(basis[i]) or non_hermitianess_measure(basis[i]) < 1e-6):
             all_herm = True
         else:
-            all_herm = False
-            print("The", i,"-th operator is non-hermitian \n")
+            all_herm = True
+            #print("The", i,"-th operator is non-hermitian \n")
             basis[i] = .5 * (basis[i] + basis[i].dag())
     
     identity_matrix = np.full((len(basis), len(basis)), 1)
@@ -856,6 +839,22 @@ def basis_orthonormality_check(basis, rho0, sc_prod):
 
 # In [16]:
 
+def build_reference_state(size, temp, Hamiltonian, lagrange_op, lagrange_mult):
+    
+    ### building the reference state
+    k_B = 1; beta = 1/(k_B * temp); 
+    K = -beta * ((1-lagrange_mult) * Hamiltonian - lagrange_mult * (lagrange_op - 1)**2)
+    Kmax = max(linalg.eigvals(K).real)
+    K = K - Kmax * qutip.tensor([qutip.qeye(2) for k in range(size)]) 
+    rho_ref = (K).expm()
+    rho_ref = rho_ref/rho_ref.tr()
+    
+    if (is_density_op(rho_ref)):
+        pass
+    else:
+        sys.exit("rho_ref: Not a valid density op")
+    return rho_ref
+
 def build_rho0_from_basis(basis):
     
     phi0 = [0] + [np.random.rand() for i in range(len(basis)-1)]
@@ -863,34 +862,59 @@ def build_rho0_from_basis(basis):
     phi0[0] = np.log(rho0.tr())
     rho0 = (-sum( f*op for f,op in zip(phi0, basis))).expm()
     
-    if (me.is_density_op(rho0)):
+    if (is_density_op(rho0)):
         pass
     else:
-        sys.exit("Not a valid density op")
+        if not ev_checks(rho0):
+            sys.exit("rho0: not positive defined")
+        if (non_hermitianess_measure(rho0) < 1e-6):
+            rho0 = .5 * (rho0 + rho0.dag())
+        if (rho0.tr() != 1):
+            rho0 = rho0/rho0.tr()            
     return phi0, rho0
 
-def semigroup_phit_sol(phi0, Htensor, ts):
-    
+def visz_H_tensor_evs(Htensor):
+    if (type(Htensor) == qutip.Qobj):
+        Htensor_local = np.array(Htensor)
+    x = sorted(np.array(qutip.Qobj(Htensor_local).eigenenergies().real))
+    y = sorted(np.array(qutip.Qobj(Htensor_local).eigenenergies().imag))
+    z = np.arange(len(x))
+    fig1, ax1 = plt.subplots()
+    ax1.plot(z,x, label = "Real Part evs")
+    ax1.plot(z,y, label = "Imag part evs")
+    ax1.legend(loc=0)
+    ax1.set_title("H-tensor's eigenvalues' real and imag part")
+
+def LEGACY_semigroup_phit_sol(phi0, Htensor, ts):
     Phi_vector_solution = []
     Phi_vector_solution.append(np.array(phi0))
-    
     for i in range(len(ts)-1):
         a = (ts[i+1] * Htensor).expm() * Phi_vector_solution[0]
         Phi_vector_solution.append(a)
-    
     return Phi_vector_solution
 
-def semigroup_rhot_sol(rho0, Phi_vector, basis):
-    
+def LEGACY_semigroup_rhot_sol(rho0, Phi_vector, basis):
     rho_at_timet = []
     rho_at_timet.append(rho0)
-    
     for i in range(len(Phi_vector)):
         rhot= (-sum( f*op for f,op in zip(Phi_vector[i], basis))).expm()
         rhot = rhot/rhot.tr()
         rho_at_timet.append(rhot)
-    
     return rho_at_timet
+
+def semigroup_phit_and_rhot_sol(phi0, rho0, Htensor, ts, basis):
+    Phi_vector_solution = []
+    Phi_vector_solution.append(np.array(phi0))
+    rho_at_timet = []
+    rho_at_timet.append(rho0)
+    
+    for i in range(1, len(ts)-1):
+        a = (ts[i+1] * Htensor).expm() * Phi_vector_solution[0]
+        Phi_vector_solution.append(a)
+        rhot= (-sum( f*op for f,op in zip(Phi_vector_solution[i], basis))).expm()
+        rhot = rhot/rhot.tr()
+        rho_at_timet.append(rhot)
+    return rho_at_timet    
 
 def semigroup_rhos_test(rho_list, visualization_nonherm, ts):
     
@@ -906,5 +930,4 @@ def semigroup_rhos_test(rho_list, visualization_nonherm, ts):
         ax2.plot(x2,y2)
         ax2.legend(loc=0)
         ax2.set_title("Non-hermitian measure for semigroup states")
-    
     return rho_list
