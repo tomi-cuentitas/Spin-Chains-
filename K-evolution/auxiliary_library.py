@@ -758,6 +758,13 @@ def spin_chain_ev(size, init_state, chain_type, closed_bcs, Hamiltonian_paras, o
 
 def recursive_basis(depth, Hamiltonian, seed_op, rho0): 
     
+    if type(depth == int):
+        pass
+    else:
+        raise Exception("Incursive depth parameter must be integer")
+    
+    #if type(seed_op)
+    
     basis = [seed_op]; loc_op = 0
     if type(depth == int):
         for i in range(1, depth):
@@ -777,9 +784,6 @@ def recursive_basis(depth, Hamiltonian, seed_op, rho0):
 # In [17]:
 
 def H_ij_matrix(HH, basis, rho0, sc_prod):
-    
-    #np.array([[me.HS_inner_prod_r(op2, -1j*(H_H*op1-op1*H_H),rho_ref) for op1 in basis_orth] for op2 in basis_orth])
-    
     coeffs_list = []
     ith_oprator_coeff_list = []
     for i in range(len(basis)):
@@ -787,18 +791,12 @@ def H_ij_matrix(HH, basis, rho0, sc_prod):
         coeffs_list.append(ith_operator_coeff_list)
         ith_operator_coeff_list = []
     
-    #coeffs_list = [[sc_prod(op1, commutator(HH, op2), rho0) for op1 in basis] for op2 in basis]
     coeffs_matrix = np.array(coeffs_list) # convert list to numpy array
-    
     return coeffs_list, coeffs_matrix
 
 def basis_orthonormality_check(basis, rho0, sc_prod):
-
     ### No es del todo eficiente pero es O(N), siendo N el tamaño de la base
-    
-    all_herm = False
-    gram_diagonals_are_one = False
-    all_ops_orth = False
+    all_herm = False; gram_diagonals_are_one = False; all_ops_orth = False
     gram_matrix = []
     
     for i in range(len(basis)):
@@ -810,7 +808,7 @@ def basis_orthonormality_check(basis, rho0, sc_prod):
             #print("The", i,"-th operator is non-hermitian \n")
             basis[i] = .5 * (basis[i] + basis[i].dag())
     
-    identity_matrix = np.full((len(basis), len(basis)), 1)
+    identity_matrix = np.identity((len(basis))
     
     for i in range(len(basis)): 
         if (abs((rho0 * basis[i]).tr() - 0) > 10**-10):
@@ -830,17 +828,11 @@ def basis_orthonormality_check(basis, rho0, sc_prod):
     
     if (all_herm and all_gram_diagonals_are_one and all_ops_orth):
         print("The basis is orthonormal and hermitian")
-    
     return basis, qutip.Qobj(gram_matrix)
 
-# Un pequeño test: si meto un operador no hermítico de prepo, saltan las alarmas correctamente
-# notsx0sx1 = 1j * spin_ops_list[1][0] * spin_ops_list[1][1]
-# mk_basis.popend()
-
-# In [16]:
+# In [18]:
 
 def build_reference_state(size, temp, Hamiltonian, lagrange_op, lagrange_mult):
-    
     ### building the reference state
     k_B = 1; beta = 1/(k_B * temp); 
     K = -beta * ((1-lagrange_mult) * Hamiltonian - lagrange_mult * (lagrange_op - 1)**2)
@@ -866,7 +858,7 @@ def build_rho0_from_basis(basis):
         pass
     else:
         if not ev_checks(rho0):
-            sys.exit("rho0: not positive defined")
+            print("rho0: not positive defined")
         if (non_hermitianess_measure(rho0) < 1e-6):
             rho0 = .5 * (rho0 + rho0.dag())
         if (rho0.tr() != 1):
@@ -885,43 +877,22 @@ def visz_H_tensor_evs(Htensor):
     ax1.legend(loc=0)
     ax1.set_title("H-tensor's eigenvalues' real and imag part")
 
-def LEGACY_semigroup_phit_sol(phi0, Htensor, ts):
-    Phi_vector_solution = []
-    Phi_vector_solution.append(np.array(phi0))
-    for i in range(len(ts)-1):
-        a = (ts[i+1] * Htensor).expm() * Phi_vector_solution[0]
-        Phi_vector_solution.append(a)
-    return Phi_vector_solution
-
-def LEGACY_semigroup_rhot_sol(rho0, Phi_vector, basis):
-    rho_at_timet = []
-    rho_at_timet.append(rho0)
-    for i in range(len(Phi_vector)):
-        rhot= (-sum( f*op for f,op in zip(Phi_vector[i], basis))).expm()
-        rhot = rhot/rhot.tr()
-        rho_at_timet.append(rhot)
-    return rho_at_timet
-
 def semigroup_phit_and_rhot_sol(phi0, rho0, Htensor, ts, basis):
-    Phi_vector_solution = []
-    Phi_vector_solution.append(np.array(phi0))
-    rho_at_timet = []
-    rho_at_timet.append(rho0)
+    Phi_vector_solution = []; rho_at_timet = []
+    Phi_vector_solution.append(np.array(phi0)); rho_at_timet.append(rho0)
     
     for i in range(1, len(ts)-1):
         a = (ts[i+1] * Htensor).expm() * Phi_vector_solution[0]
         Phi_vector_solution.append(a)
-        rhot= (-sum( f*op for f,op in zip(Phi_vector_solution[i], basis))).expm()
-        rhot = rhot/rhot.tr()
-        rho_at_timet.append(rhot)
+        rhot= qutip.Qobj((-sum( f*op for f,op in zip(a, basis))).expm())
+        #if (rhot.tr() < 1e-6):
+        #   continue 
+        rho_at_timet.append(rhot/rhot.tr())
     return rho_at_timet    
 
 def semigroup_rhos_test(rho_list, visualization_nonherm, ts):
-    
-    non_densitiness = []
-    for t in range(len(rho_list)-1):
-        non_densitiness.append(linalg.norm(rho_list[t] - rho_list[t].dag())/(linalg.norm(rho_list[t])))
-        rho_list[t] = .5 * (rho_list[t] + rho_list[t].dag())
+    non_densitiness = [ (linalg.norm(rho_list[t] - rho_list[t].dag())/ linalg.norm(rho_list[t])) for t in range(len(rho_list))]
+    rho_list = [.5 * (rho_list[t] + rho_list[t].dag()) for t in range(len(rho_list))]
             
     if visualization_nonherm:
         x2 = np.arange(len(non_densitiness))
