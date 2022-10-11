@@ -14,15 +14,9 @@ import scipy.linalg as linalg
 ### This module checks if the matrix is positive definite ie. if all its eigenvalues are positive
 
 def ev_checks(rho):
-    a = False; ev_list = linalg.eig(rho)[0]
-    for i in range(len(ev_list)):
-        a = ev_list[i] > 0
-        if not a:
-            a = False
-            sys.exit("Eigenvalues not positive")
-    #if a:
-    #    print("Input matrix is a density matrix")
-    return a
+    evs_imag_part_zero = np.all(np.imag(linalg.eig(rho)[0]) <= 1e-10)
+    evs_real_part_pos = np.all(np.real(linalg.eig(rho)[0]) >= 1e-10)
+    return (evs_imag_part_zero and evs_real_part_pos)
 
 ### This module checks if the user-input quantum object, rho, is a density operator or not.
 ### This is done by checking if it is a hermitian, positive definite, trace-one, matrix.
@@ -123,10 +117,8 @@ def one_body_spin_ops(size):
 def spin_dephasing(op_list, size, gamma):
         loc_c_op_list = []; 
         loc_sz_list = op_list[3]
-        
         collapse_weights = abs(gamma) * np.ones(size)
         loc_c_op_list = [np.sqrt(collapse_weights[n]) * loc_sz_list[n] for n in range(size)]
-    
         return loc_c_op_list
 
 # In [4]: 
@@ -651,6 +643,7 @@ def spin_chain_ev(size, init_state, chain_type, closed_bcs, Hamiltonian_paras, o
     global rho
     build_all = True
     
+    sc_prod = HS_inner_prod_r
     ### The algorithm starts by constructing all one-body spin operators, acting on the full N-particle Hilbert space
     ### This means, it constructs the 3N + 1 one_body spins ops (N sigmax operators, N sigmay operators, N sigmaz operators
     ### an the global identity operator
@@ -673,12 +666,18 @@ def spin_chain_ev(size, init_state, chain_type, closed_bcs, Hamiltonian_paras, o
         else:
             raise Exception("User input initial state not a density matrix")
     
+    ### Hamiltonian
+    
+    H=Heisenberg_Hamiltonian(op_list = spin_big_list, chain_type = chain_type,
+                                size = size, Hamiltonian_paras = Hamiltonian_paras,
+                                closed_bcs = closed_bcs, visualization = False)
+    
     ### Then, the algorithm either takes a user-input choice for observables or it constructs a default one. 
     
     if obs_basis is None: 
         print("Processing default observable basis")
-        x_op, p_op, comm_xp, corr_xp, p_dot = classical_ops(spin_big_list, chain_type, size, Hamiltonian_paras)
-        obs = [x_op, p_op, comm_xp, corr_xp, p_dot] #, x_op**2,p_op**2, corr_op, p_dot]
+        cl_ops, labels = classical_ops(H, size, spin_big_list, False)
+        obs = cl_ops #, x_op**2,p_op**2, corr_op, p_dot]
     else:
         print("Processing custom observable basis")
         obs = obs_basis
@@ -709,9 +708,7 @@ def spin_chain_ev(size, init_state, chain_type, closed_bcs, Hamiltonian_paras, o
     
     for i in range(int(tmax/deltat)):
         ### Heisenberg Hamiltonian is constructed
-        qutip.mesolve(H=Heisenberg_Hamiltonian(op_list = spin_big_list, chain_type = chain_type,
-                                size = size, Hamiltonian_paras = Hamiltonian_paras,
-                                closed_bcs = closed_bcs, visualization = False),
+        qutip.mesolve(H,
                                rho0=rho, 
                                tlist=np.linspace(0,deltat, sampling), 
                                c_ops=c_op_list, 
@@ -783,15 +780,10 @@ def recursive_basis(depth, Hamiltonian, seed_op, rho0):
 
 # In [17]:
 
-def H_ij_matrix(HH, basis, rho0, sc_prod):
-    coeffs_list = []
-    ith_oprator_coeff_list = []
-    for i in range(len(basis)):
-        ith_operator_coeff_list = [sc_prod(basis[i], -1j * commutator(HH, op2), rho0) for op2 in basis]
-        coeffs_list.append(ith_operator_coeff_list)
-        ith_operator_coeff_list = []
+def H_ij_matrix(Hamiltonian, basis, rho0, sc_prod):
     
-    coeffs_matrix = np.array(coeffs_list) # convert list to numpy array
+    coeffs_list = [[sc_prod(op1, -1j * commutator(Hamiltonian, op2)) for op2 in basis] for op1 in basis]
+    coeffs_matrix = np.array(coeffs_list)
     return coeffs_list, coeffs_matrix
 
 def basis_orthonormality_check(basis, rho0, sc_prod):
@@ -808,7 +800,7 @@ def basis_orthonormality_check(basis, rho0, sc_prod):
             #print("The", i,"-th operator is non-hermitian \n")
             basis[i] = .5 * (basis[i] + basis[i].dag())
     
-    identity_matrix = np.identity((len(basis))
+    identity_matrix = np.identity((len(basis)))
     
     for i in range(len(basis)): 
         if (abs((rho0 * basis[i]).tr() - 0) > 10**-10):
