@@ -754,19 +754,16 @@ def spin_chain_ev(size, init_state, chain_type, closed_bcs, Hamiltonian_paras, o
 # In [16]: 
 
 def recursive_basis(depth, Hamiltonian, seed_op, rho0): 
-    
     if type(depth == int):
         pass
     else:
         raise Exception("Incursive depth parameter must be integer")
-    
     #if type(seed_op)
-    
     basis = [seed_op]; loc_op = 0
     if type(depth == int):
         for i in range(1, depth):
             loc_op = -1j * commutator(Hamiltonian, basis[i-1])
-            if (linalg.norm(loc_op) < 1e-6):
+            if (linalg.norm(loc_op) < 1e-10):
                 print("Operator at depth", i, "is null")
                 loc_op = None
                 continue
@@ -775,13 +772,11 @@ def recursive_basis(depth, Hamiltonian, seed_op, rho0):
     else:
         basis 
         raise Exception("Incursive depth parameter must be integer")
-        
     return basis
 
 # In [17]:
 
 def H_ij_matrix(Hamiltonian, basis, rho0, sc_prod):
-    
     coeffs_list = [[sc_prod(op1, -1j * commutator(Hamiltonian, op2)) for op2 in basis] for op1 in basis]
     coeffs_matrix = np.array(coeffs_list)
     return coeffs_list, coeffs_matrix
@@ -829,7 +824,8 @@ def build_reference_state(size, temp, Hamiltonian, lagrange_op, lagrange_mult):
     k_B = 1; beta = 1/(k_B * temp); 
     K = -beta * ((1-lagrange_mult) * Hamiltonian - lagrange_mult * (lagrange_op - 1)**2)
     Kmax = max(linalg.eigvals(K).real)
-    K = K - Kmax * qutip.tensor([qutip.qeye(2) for k in range(size)]) 
+    K = K/Kmax
+    #K = K - Kmax * qutip.tensor([qutip.qeye(2) for k in range(size)]) 
     rho_ref = (K).expm()
     rho_ref = rho_ref/rho_ref.tr()
     
@@ -840,7 +836,6 @@ def build_reference_state(size, temp, Hamiltonian, lagrange_op, lagrange_mult):
     return rho_ref
 
 def build_rho0_from_basis(basis):
-    
     phi0 = [0] + [np.random.rand() for i in range(len(basis)-1)]
     rho0 = (-sum( f*op for f,op in zip(phi0, basis))).expm()
     phi0[0] = np.log(rho0.tr())
