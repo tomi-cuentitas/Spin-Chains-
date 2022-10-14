@@ -504,7 +504,7 @@ def sqrtM(rho, svd = True):
             raise Exception("Non positive-defined input matrix")
         eigvals, eigvecs = rho.eigenstates()
         matrix_sqrt = sum([np.sqrt(vl)*vc*vc.dag() for vl, vc in zip(eigvals, eigvecs)]) 
-    
+        
     if type(rho) == qutip.Qobj:
         matrix_sqrt = qutip.Qobj(matrix_sqrt, rho.dims)
     return matrix_sqrt
@@ -513,41 +513,36 @@ def bures(rho, sigma, svd = True):
     if svd:
         U_rho, Sigma_rho, Vdag_rho = linalg.svd(rho)
         U_sigma, Sigma_sigma, Vdag_sigma = linalg.svd(sigma)
-        #if me.ev_checks(rho) and me.ev_checks(sigma):
-        #    val1 = abs((qutip.Qobj((np.diag(Sigma_sigma) @ np.array(qutip.Qobj(U_sigma).dag()) @ U_rho @ Sigma_rho 
-        #                            @ np.array(qutip.Qobj(U_rho).dag()) @ U_rho))).tr())
-        #else:
         val1 = abs((sqrtM(sigma, True) * qutip.Qobj(rho) * sqrtM(sigma, True)).tr())
     else:
         if (is_density_op(rho) and is_density_op(sigma)):
-            val1 = (sqrtM(sigma) * rho * sqrtM(sigma)).tr()
+            val1 = (sqrtM(sigma, False) * rho * sqrtM(sigma, False)).tr()
             val1 = abs(val1)
         else: 
             sys.exit("Either rho or sigma not density operators")
     #val1 = max(min(val1, 1.),-1.)
-    #val1 = np.arccos(val1)/np.pi
+    val1 = np.arccos(val1)/np.pi
     return val1
-
-### si la retorno como qutip.Qobj tiene que ser con las mismas dimensioness!!!!!
 
 # In [13]: 
 
 def proj_op(K, basis, rho0, sc_prod):
     return sum([sc_prod(b, K,rho0) * b for b in basis])
 
-def rel_entropy(rho, sigma):
-    if (ev_checks(rho) and ev_checks(sigma)):
-        pass
+def rel_entropy(rho, sigma, svd = True):
+    if svd:
+        val = (rho*(logM(rho, True) - logM(sigma, True))).tr()
     else:
-        raise Exception("Either rho or sigma non positive")
-    
-    val = (rho*(logM(rho)-logM(sigma))).tr()
-                    
-    if (abs(val.imag - 0)>1.e-6):
-        val = None
-        raise Exception("Either rho or sigma not positive")
+        if (ev_checks(rho) and ev_checks(sigma)):
+            pass
+        else:
+            raise Exception("Either rho or sigma non positive")
+        val = (rho*(logM(rho, False)-logM(sigma, False))).tr()
+        if (abs(val.imag - 0)>1.e-6):
+            val = None
+            raise Exception("Either rho or sigma not positive")
     return val.real
-                
+
 # In [14]:
         
 def maxent_rho(rho, basis):   
@@ -647,8 +642,7 @@ class Result(object):
         self.projrho0_app = None   
         self.projrho_inst_app = None 
 
-rhos = []
-    
+rhos = []    
 def callback(t, rhot):
     global rho
     global rhos
@@ -842,9 +836,8 @@ def build_reference_state(size, temp, Hamiltonian, lagrange_op, lagrange_mult):
     ### building the reference state
     k_B = 1; beta = 1/(k_B * temp); 
     K = -beta * ((1-lagrange_mult) * Hamiltonian - lagrange_mult * (lagrange_op - 1)**2)
-    Kmax = max(linalg.eigvals(K).real)
-    K = K/Kmax
-    #K = K - Kmax * qutip.tensor([qutip.qeye(2) for k in range(size)]) 
+    Kmin = min(linalg.eigvals(K).real)
+    K = K - Kmin * qutip.tensor([qutip.qeye(2) for k in range(size)]) 
     rho_ref = (K).expm()
     rho_ref = rho_ref/rho_ref.tr()
     
