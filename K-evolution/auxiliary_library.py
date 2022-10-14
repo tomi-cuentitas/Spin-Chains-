@@ -234,7 +234,6 @@ def Heisenberg_Hamiltonian(op_list, chain_type, size, Hamiltonian_paras, closed_
         sys.exit("Non-Hermitian Hamiltonian obtained")
 
 def Heisenberg_Hamiltonian_tests(spin_ops_list, N):
-    
     start_time = time.time()
     Hamiltonian_paras = [.2, .15, .1, 1.]
     spin_chain_type = ["XX", "XYZ", "XXZ", "XXX"]
@@ -247,8 +246,7 @@ def Heisenberg_Hamiltonian_tests(spin_ops_list, N):
             pass
         else:
             print(spin_chain_type[i], "Hamiltonian with open bcs non-hermitian")
-        
-        
+                
     for i in range(len(spin_chain_type)):
         all_hamiltonians_are_hermitian[4+i] = qutip.isherm(Heisenberg_Hamiltonian(spin_ops_list, spin_chain_type[i],
                                                                               N, False, Hamiltonian_paras, True))
@@ -260,9 +258,7 @@ def Heisenberg_Hamiltonian_tests(spin_ops_list, N):
     
     if (Heisenberg_Hamiltonian_tests(spin_ops_list, N) == [True for i in range(2*len(spin_chain_type))]):
         print("All Hamiltonians are correct")
-    
     print("--- Test concluded in: %s seconds ---" % (time.time() - start_time))
-    
     return all_hamiltonians_are_hermitian
 
 #In [7]:
@@ -371,7 +367,6 @@ def max_ent_basis(op_list, op_basis_order_is_two, N, rho0):
             lista_ampliada.append(qutip.tensor(n_body_basis(op_list, N,1)[i], qutip.qeye(2)))
         basis = base_orth(lista_ampliada, rho0, sc_prod, False) ## one-body max-ent basis
         a = "one"
-    
     print(a + "-body operator chosen")
     return basis
 
@@ -379,11 +374,8 @@ def max_ent_basis(op_list, op_basis_order_is_two, N, rho0):
 
 def n_body_max_ent_state(op_list, gr, N, coeffs = list, build_all = True, visualization = False):
     K = 0; rho_loc = 0;
-    
     loc_globalid = qutip.tensor([qutip.qeye(2) for k in range(N)]) 
-    
     globalid_list, sx_list, sy_list, sz_list = op_list       
-    
     pauli_vec = [sx_list, sy_list, sz_list];
     
     if (gr == 1):
@@ -420,7 +412,6 @@ def n_body_max_ent_state(op_list, gr, N, coeffs = list, build_all = True, visual
         
     if visualization: 
         qutip.hinton(rho_loc)
-        
     return rho_loc 
 
 # In [9]: 
@@ -447,7 +438,6 @@ def initial_state(op_list, N = 1, gaussian = True, gr = 1, x = .5, coeffs = list
     
     if visualization:
             qutip.hinton(rho0)
-    
     return rho0  
 
 # In [10]: 
@@ -486,30 +476,59 @@ def choose_initial_state_type(op_list, N, build_all, x, gaussian, gr):
 
 # In [12]: 
 
-def logM(rho):
-    if ev_checks(rho):
-        pass
-    else:
-        raise Exception("Singular input matrix")
-    eigvals, eigvecs = rho.eigenstates()
-    return sum([np.log(vl)*vc*vc.dag() for vl, vc in zip(eigvals, eigvecs)])
-
-def sqrtM(rho):
-    if ev_checks(rho):
-        pass
-    else:
-        raise Exception("Singular input matrix")
-    eigvals, eigvecs = rho.eigenstates()
-    return sum([(vl**.5)*vc*vc.dag() for vl, vc in zip(eigvals, eigvecs)])
-
-def bures(rho, sigma):
-    if (is_density_op(rho) and is_density_op(sigma)):
-        val1 = abs((sqrtM(rho)*sqrtM(sigma)).tr())
-        val1 = max(min(val1,1.),-1.)
-        val1 = np.arccos(val1)/np.pi
+def logM(rho, svd = True):
+    if svd:
+        U, Sigma, Vdag = linalg.svd(rho, full_matrices = False)
+        matrix_log = U @ np.diag(np.log(Sigma)) @ Vdag 
+        #matrix_log = qutip.Qobj(U) * qutip.Qobj(np.diag(np.log(Sigma))) * qutip.Qobj(np.array(Vdag))
     else: 
-        sys.exit("Singular input matrix")
+        if ev_checks(rho):
+            pass
+        else:
+            raise Exception("Non positive-defined input matrix")
+        eigvals, eigvecs = rho.eigenstates()
+        matrix_log = sum([np.log(vl)*vc*vc.dag() for vl, vc in zip(eigvals, eigvecs)]) 
+    
+    if type(rho) == qutip.Qobj:
+        matrix_log = qutip.Qobj(matrix_log, rho.dims)
+    return matrix_log
+
+def sqrtM(rho, svd = True):
+    if svd:
+        U, Sigma, Vdag = linalg.svd(rho, full_matrices = False)
+        matrix_sqrt = U @ np.diag(Sigma**.5) @ Vdag 
+    else: 
+        if ev_checks(rho):
+            pass
+        else:
+            raise Exception("Non positive-defined input matrix")
+        eigvals, eigvecs = rho.eigenstates()
+        matrix_sqrt = sum([np.sqrt(vl)*vc*vc.dag() for vl, vc in zip(eigvals, eigvecs)]) 
+    
+    if type(rho) == qutip.Qobj:
+        matrix_sqrt = qutip.Qobj(matrix_sqrt, rho.dims)
+    return matrix_sqrt
+
+def bures(rho, sigma, svd = True):
+    if svd:
+        U_rho, Sigma_rho, Vdag_rho = linalg.svd(rho)
+        U_sigma, Sigma_sigma, Vdag_sigma = linalg.svd(sigma)
+        #if me.ev_checks(rho) and me.ev_checks(sigma):
+        #    val1 = abs((qutip.Qobj((np.diag(Sigma_sigma) @ np.array(qutip.Qobj(U_sigma).dag()) @ U_rho @ Sigma_rho 
+        #                            @ np.array(qutip.Qobj(U_rho).dag()) @ U_rho))).tr())
+        #else:
+        val1 = abs((sqrtM(sigma, True) * qutip.Qobj(rho) * sqrtM(sigma, True)).tr())
+    else:
+        if (is_density_op(rho) and is_density_op(sigma)):
+            val1 = (sqrtM(sigma) * rho * sqrtM(sigma)).tr()
+            val1 = abs(val1)
+        else: 
+            sys.exit("Either rho or sigma not density operators")
+    #val1 = max(min(val1, 1.),-1.)
+    #val1 = np.arccos(val1)/np.pi
     return val1
+
+### si la retorno como qutip.Qobj tiene que ser con las mismas dimensioness!!!!!
 
 # In [13]: 
 
