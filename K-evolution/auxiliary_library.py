@@ -357,7 +357,7 @@ def n_body_basis(op_list, gr, N):
             print(ex)
     return basis
 
-def max_ent_basis(op_list, op_basis_order_is_two, N, rho0):
+def max_ent_basis(op_list, op_basis_order_is_two, N, rho0, sc_prod):
     if (op_basis_order_is_two):
         basis = base_orth(n_body_basis(op_list, 2, N), rho0, sc_prod, False)  ## two-body max ent basis
         a = "two"
@@ -643,18 +643,21 @@ class Result(object):
         self.projrho_inst_app = None 
 
 rhos = []    
-def callback(t, rhot):
+def callback_A(t, rhot):
     global rho
     global rhos
     rho = rhot
     rhos.append(rhot)
-
+    
 def spin_chain_ev(size, init_state, chain_type, closed_bcs, Hamiltonian_paras, omega_1=3., omega_2=3., temp=1, tmax = 250, deltat = 10, 
                   two_body_basis = True, unitary_ev = False, gamma = 1*np.e**-2,
                   gaussian = True, gr = 2, xng = .5, sc_prod = HS_inner_prod_r, obs_basis = None, do_project = True):
     
-    global rho
     build_all = True
+    
+    def callback_t(t, rhot):
+        global rho
+        rho = rhot
     
     sc_prod = HS_inner_prod_r
     ### The algorithm starts by constructing all one-body spin operators, acting on the full N-particle Hilbert space
@@ -717,7 +720,7 @@ def spin_chain_ev(size, init_state, chain_type, closed_bcs, Hamiltonian_paras, o
     
     if do_project:    
         print("Processing two-body for proj ev")
-        basis = max_ent_basis(spin_big_list, two_body_basis, size, rho0)
+        basis = max_ent_basis(spin_big_list, two_body_basis, size, rho0, sc_prod)
     
     for i in range(int(tmax/deltat)):
         ### Heisenberg Hamiltonian is constructed
@@ -725,7 +728,7 @@ def spin_chain_ev(size, init_state, chain_type, closed_bcs, Hamiltonian_paras, o
                                rho0=rho, 
                                tlist=np.linspace(0,deltat, sampling), 
                                c_ops=c_op_list, 
-                               e_ops=callback,
+                               e_ops=callback_t,
                                args={'gamma': gamma,'omega_1': omega_1, 'omega_2': omega_2}
                                )
         ts.append(deltat*i)
@@ -766,6 +769,28 @@ def spin_chain_ev(size, init_state, chain_type, closed_bcs, Hamiltonian_paras, o
 
 # In [16]: 
 
+def build_reference_state(size, temp, Hamiltonian, lagrange_op, lagrange_mult, svd = True):
+    ### building the reference state
+    k_B = 1; beta = 1/(k_B * temp); 
+    K = -beta * ((1-lagrange_mult) * Hamiltonian - lagrange_mult * (lagrange_op - 1)**2)
+    K = K/(K.tr()) 
+    rho_ref = (K).expm()
+    rho_ref = rho_ref/rho_ref.tr()
+    if is_density_op(rho_ref):
+        pass
+    else:
+        if (not qutip.isherm(rho_ref) or non_hermitianess_measure(rho_ref) < 1e-10):
+            rho_ref = .5 * (rho_ref + rho_ref.dag())
+        if not ev_checks(rho_ref):
+            sys.exit("Singular density op")
+            
+    #if svd: 
+    #    Ks_max_value = max(linalg.svd(K)[1])
+    #if not svd:
+    #    Ks_max_value = min(linalg.eigvals(K).real)
+    
+    return K, rho_ref
+
 def recursive_basis(depth, Hamiltonian, seed_op, rho0): 
     if type(depth == int):
         pass
@@ -775,11 +800,11 @@ def recursive_basis(depth, Hamiltonian, seed_op, rho0):
     basis = [seed_op]; loc_op = 0
     if type(depth == int):
         for i in range(1, depth):
-            loc_op = -1j * commutator(Hamiltonian, basis[i-1])
+            loc_op = qutip.Qobj(-1j * commutator(Hamiltonian, basis[i-1]))
             if (linalg.norm(loc_op) < 1e-10):
                 print("Operator at depth", i, "is null")
                 loc_op = None
-                continue
+                break
             loc_op = (loc_op * rho0).tr() - loc_op
             basis.append(loc_op)
     else:
@@ -794,24 +819,13 @@ def H_ij_matrix(Hamiltonian, basis, rho0, sc_prod):
     coeffs_matrix = np.array(coeffs_list)
     return coeffs_list, coeffs_matrix
 
-def basis_orthonormality_check(basis, rho0, sc_prod):
-    ### No es del todo eficiente pero es O(N), siendo N el tamaño de la base
-    all_herm = False; gram_diagonals_are_one = False; all_ops_orth = False
-    gram_matrix = []
-    
-    for i in range(len(basis)):
-        gram_matrix.append([sc_prod(basis[i], op, rho0) for op in basis])
-        if (qutip.isherm(basis[i]) or non_hermitianess_measure(basis[i]) < 1e-6):
-            all_herm = True
-        else:
-            all_herm = True
-            #print("The", i,"-th operator is non-hermitian \n")
-            basis[i] = .5 * (basis[i] + basis[i].dag())
-    
-    identity_matrix = np.identity((len(basis)))
+def basis_orthonormality_check(basis, rho0, sc_prod): 
+    gram_matrix = [[sc_prod(op2, op1, rho0) for op2 in basis] for op1 in basis]
+    hermitian_basis = [linalg.norm(op1 - op1.dag()) < 1e-10 for op1 in basis]
+    mean0_centered_ops = [np.real((rho0 * op1).tr()-0) > 1e-10 for op1 in basis]
     
     for i in range(len(basis)): 
-        if (abs((rho0 * basis[i]).tr() - 0) > 10**-10):
+        if (mean0_centered_ops[i] != 0):
             print("Not mean-normalized operator at", i, "-th level")
             print((rho0 * basis[i]).tr())
         if (abs(gram_matrix[i][i] - 1) < 10**-10):
@@ -819,33 +833,18 @@ def basis_orthonormality_check(basis, rho0, sc_prod):
         else:
             all_gram_diagonals_are_one = False
             print("The", i,"-th operator is not normalized \n")
-            
+    
     if (linalg.norm((np.identity(len(basis)) - gram_matrix) < 10**-10)):
         all_ops_orth = True
     else:
         all_ops_orth = False
         print("Not all operators are pair-wise orthogonal")
-    
-    if (all_herm and all_gram_diagonals_are_one and all_ops_orth):
+        
+    if (np.all(hermitian_basis) and all_gram_diagonals_are_one and all_ops_orth):
         print("The basis is orthonormal and hermitian")
     return basis, qutip.Qobj(gram_matrix)
 
 # In [18]:
-
-def build_reference_state(size, temp, Hamiltonian, lagrange_op, lagrange_mult):
-    ### building the reference state
-    k_B = 1; beta = 1/(k_B * temp); 
-    K = -beta * ((1-lagrange_mult) * Hamiltonian - lagrange_mult * (lagrange_op - 1)**2)
-    Kmin = min(linalg.eigvals(K).real)
-    K = K - Kmin * qutip.tensor([qutip.qeye(2) for k in range(size)]) 
-    rho_ref = (K).expm()
-    rho_ref = rho_ref/rho_ref.tr()
-    
-    if (is_density_op(rho_ref)):
-        pass
-    else:
-        sys.exit("rho_ref: Not a valid density op")
-    return rho_ref
 
 def build_rho0_from_basis(basis):
     phi0 = [0] + [np.random.rand() for i in range(len(basis)-1)]
