@@ -784,21 +784,13 @@ def build_reference_state(size, temp, Hamiltonian, lagrange_op, lagrange_mult, s
         if not ev_checks(rho_ref):
             sys.exit("Singular density op")
             
-    #if svd: 
-    #    Ks_max_value = max(linalg.svd(K)[1])
-    #if not svd:
-    #    Ks_max_value = min(linalg.eigvals(K).real)
-    
+    #if svd:     #    Ks_max_value = max(linalg.svd(K)[1])
+    #if not svd:    #    Ks_max_value = min(linalg.eigvals(K).real)
     return K, rho_ref
 
 def recursive_basis(depth, Hamiltonian, seed_op, rho0): 
-    if type(depth == int):
-        pass
-    else:
-        raise Exception("Incursive depth parameter must be integer")
-    #if type(seed_op)
     basis = [seed_op]; loc_op = 0
-    if type(depth == int):
+    if depth > 0: 
         for i in range(1, depth):
             loc_op = qutip.Qobj(-1j * commutator(Hamiltonian, basis[i-1]))
             if (linalg.norm(loc_op) < 1e-10):
@@ -807,11 +799,27 @@ def recursive_basis(depth, Hamiltonian, seed_op, rho0):
                 break
             loc_op = (loc_op * rho0).tr() - loc_op
             basis.append(loc_op)
-    else:
-        basis 
-        raise Exception("Incursive depth parameter must be integer")
+    elif (depth == 0):
+        basis = []
     return basis
 
+def vectorized_recursive_basis(depth_list, seed_ops_list, Hamiltonian, rho0):
+    #if np.all([(isinstance(di,int) and di >= 0) for di in depth_list]):
+    #    pass
+    #else:
+    #    raise Exception("Incursive depth parameter must be natural") 
+    
+    if len(depth_list) == len(seed_ops_list):
+        pass
+    else:
+        raise Exception("Insufficient depth parameters")
+        
+    basis_rec = []
+    for i in range(len(seed_ops_list)): 
+        basis_rec.append(seed_ops_list[i])
+        basis_rec += recursive_basis(depth_list[i], Hamiltonian, seed_ops_list[i], rho0)
+    return basis_rec
+    
 # In [17]:
 
 def H_ij_matrix(Hamiltonian, basis, rho0, sc_prod):
@@ -825,7 +833,7 @@ def basis_orthonormality_check(basis, rho0, sc_prod):
     mean0_centered_ops = [np.real((rho0 * op1).tr()-0) > 1e-10 for op1 in basis]
     
     for i in range(len(basis)): 
-        if (mean0_centered_ops[i] != 0):
+        if (np.real(mean0_centered_ops[i]) < 1e-5):
             print("Not mean-normalized operator at", i, "-th level")
             print((rho0 * basis[i]).tr())
         if (abs(gram_matrix[i][i] - 1) < 10**-10):
@@ -900,5 +908,3 @@ def semigroup_rhos_test(rho_list, visualization_nonherm, ts):
         ax2.legend(loc=0)
         ax2.set_title("Non-hermitian measure for semigroup states")
     return rho_list
-
-### aaaaa
