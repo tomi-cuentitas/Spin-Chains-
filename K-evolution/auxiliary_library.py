@@ -1,12 +1,10 @@
 # In [1]:
 
-import qutip
+import qutip, sys, pickle
 import numpy as np
 import scipy.optimize as opt 
 import matplotlib.pyplot as plt
-import pickle
 import time as time
-import sys
 import scipy.linalg as linalg
 
 # In [2]:
