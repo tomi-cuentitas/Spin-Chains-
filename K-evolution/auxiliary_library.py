@@ -833,7 +833,8 @@ def basis_orthonormality_check(basis, rho0, sc_prod):
     mean0_centered_ops = [np.real((rho0 * op1).tr()-0) > 1e-10 for op1 in basis]
     
     for i in range(len(basis)): 
-        if (np.real(mean0_centered_ops[i]) < 1e-5):
+        mu0i= mean0_centered_ops[i]
+        if (-1e-5 > np.real(mu0i) > 1e-5 and abs(np.imag(mu0i)) > 1e-10):
             print("Not mean-normalized operator at", i, "-th level")
             print((rho0 * basis[i]).tr())
         if (abs(gram_matrix[i][i] - 1) < 10**-10):
@@ -908,3 +909,39 @@ def semigroup_rhos_test(rho_list, visualization_nonherm, ts):
         ax2.legend(loc=0)
         ax2.set_title("Non-hermitian measure for semigroup states")
     return rho_list
+
+def LEGACY_plots(ts, res_proj_ev, res_exact):
+    z = ts[:-1]
+    fig3, ax3 = plt.subplots()
+    ax3.plot(z, res_proj_ev[0], label = "Manifold-proj")
+    ax3.plot(z, res_exact.expect[0][:-1], label = "Exact")
+    ax3.legend(loc=0)
+    ax3.set_title("Expected values for x_op - Exact v. Proj. ev. ")
+        
+    fig4, ax4 = plt.subplots()
+    ax4.plot(z, res_proj_ev[1], label = "Manifold-proj")
+    ax4.plot(z, res_exact.expect[1][:-1], label = "Exact")
+    ax4.legend(loc = 0)
+    ax4.set_title("Expected values for n_oc_op - Exact v. Proj. ev.")
+        
+    fig5, ax5 = plt.subplots()
+    ax5.plot(z, res_proj_ev[2], label = "Manifold-proj")
+    ax5.plot(z, res_exact.expect[2][:-1], label = "Exact")
+    ax5.legend(loc = 0)
+    ax5.set_title("Expected values for magnetization - Exact v. Proj. ev.")
+    
+def plot_exact_v_proj_ev_avgs(observables, label, ts, res_proj_ev, res_exact):
+    Tot = len(observables); Cols = 2
+    Rows = Tot // Cols 
+    if Tot % Cols != 0:
+        Rows += 1
+    Position = range(1,Tot + 1)
+    z = ts[:-1]
+    fig = plt.figure(figsize=(16, 6))
+    for k in range(Tot):
+        ax = fig.add_subplot(Rows,Cols,Position[k])
+        ax.plot(z,res_proj_ev[k], label = "Manifold proj")
+        ax.plot(z, res_exact.expect[k][:-1], label = "Exact")
+        ax.legend(loc=0)
+        ax.set_title("Expected values: Proj-ev. v. Exact for " + label[k])
+    plt.show()
