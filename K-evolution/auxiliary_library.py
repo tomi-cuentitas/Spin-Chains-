@@ -829,6 +829,19 @@ def build_reference_state(size, temp, Hamiltonian, lagrange_op, lagrange_mult, s
     return K, rho_ref
 
 def recursive_basis(depth, Hamiltonian, seed_op, rho0): 
+    """
+    Build a basis of the form 
+    [c_0(seed_op), c_1(seed_op), ... c_depth(seed_op)]
+    with c_0(op)=op-<op>
+    
+    c_1(op) = [Hamiltinian, op]-<[Hamiltinian, op]>
+    
+    c_{n+1}(op) = c_1(c_{n}(op))
+    
+    As a result, this is a zero-average basis of hermitician operators
+    that expands the order `depth` Dyson's series for
+    seed_op(t).
+    """
     basis = [seed_op]; loc_op = 0
     if depth > 0: 
         for i in range(1, depth):
@@ -841,6 +854,7 @@ def recursive_basis(depth, Hamiltonian, seed_op, rho0):
             basis.append(loc_op)
     elif (depth == 0):
         basis = []
+    # maybe it worth to  orthonormalize the basis here...
     return basis
 
 def vectorized_recursive_basis(depth_list, seed_ops_list, Hamiltonian, rho0):
@@ -849,15 +863,21 @@ def vectorized_recursive_basis(depth_list, seed_ops_list, Hamiltonian, rho0):
     #else:
     #    raise Exception("Incursive depth parameter must be natural") 
     
+    # Use this is more standard, shorter and  clearer:
+    # assert len(depth_list) == len(seed_ops_list), "Insufficient depth parameters"
     if len(depth_list) == len(seed_ops_list):
         pass
     else:
         raise Exception("Insufficient depth parameters")
         
     basis_rec = []
-    for i in range(len(seed_ops_list)): 
-        basis_rec.append(seed_ops_list[i])
-        basis_rec += recursive_basis(depth_list[i], Hamiltonian, seed_ops_list[i], rho0)
+    #for i in range(len(seed_ops_list)): 
+    for depth, op in zip(depth_list, seed_ops_list):
+        # This is already included in the basis comming from recursive_basis
+        # basis_rec.append(seed_ops_list[i])
+        basis_rec += recursive_basis(depth, Hamiltonian, op, rho0)
+        
+    # maybe it worth to  orthonormalize the basis here...
     return basis_rec
     
 # In [17]:
