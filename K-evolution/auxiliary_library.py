@@ -117,12 +117,22 @@ def one_body_spin_ops(size):
     
     ### The global identity operator is constructed 
     
-    loc_global_id = [qutip.tensor([qutip.qeye(2) for k in range(size)])]
+    loc_global_id = [qutip.tensor([id2 for k in range(size)])]
     
     ### Lists of one-body operators are constructed, so that they all act on the full Hilbert space. This is done
     ### via taking tensor products on lists of operators. 
     
     for n in range(size):
+        # use list comprehensions for shorter, clearer, and faster code:
+        # tmp_op = [id2 for k in range(size)] 
+        # tmp_op[n] = sx
+        # loc_sx_list.append(qutip.tensor(tmp_op))
+        # tmp_op[n] = sy
+        # loc_sy_list.append(qutip.tensor(tmp_op))
+        # tmp_op[n] = sz
+        # loc_sz_list.append(qutip.tensor(tmp_op))
+        # # and this one does not seems very useful, but OK...
+        # loc_globalid_list.append(loc_global_id)
         operator_list = []
         for m in range(size):
             operator_list.append(id2)
@@ -144,6 +154,8 @@ def spin_dephasing(op_list, size, gamma):
         loc_c_op_list = []; 
         loc_sz_list = op_list[3]
         collapse_weights = abs(gamma) * np.ones(size)
+        # A more Pythonic way to do the same...
+        # loc_c_op_list = [np.sqrt(w) * op for w, op in zip(collapse_weights, loc_sz_list)]
         loc_c_op_list = [np.sqrt(collapse_weights[n]) * loc_sz_list[n] for n in range(size)]
         return loc_c_op_list
 
@@ -154,7 +166,8 @@ def spin_dephasing(op_list, size, gamma):
 
 def all_two_body_spin_ops(op_list, size):
     loc_global_id_list, sx_list, sy_list, sz_list = op_list
-      
+
+    # The identity should not be here...
     pauli_four_vec = [loc_global_id_list, sx_list, sy_list, sz_list];
         
     sxsa_list = []; sysa_list = []; szsa_list = []; two_body_s = [];
@@ -170,7 +183,8 @@ def all_two_body_spin_ops(op_list, size):
     szsa_list = [sz_list[n] * pauli_four_vec[a][b] for n in range(size)
                                                    for a in range(len(pauli_four_vec))
                                                    for b in range(len(pauli_four_vec[a]))]
-    
+    # Notice that since you have added the identity, this contains also 0-body (the global id)
+    # and 1-body operators...
     two_body_s = [sxsa_list, sysa_list, szsa_list]
     return two_body_s
 
