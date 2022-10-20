@@ -89,12 +89,22 @@ def one_body_spin_ops(size):
     
     ### The global identity operator is constructed 
     
-    loc_global_id = [qutip.tensor([qutip.qeye(2) for k in range(size)])]
+    loc_global_id = [qutip.tensor([id2 for k in range(size)])]
     
     ### Lists of one-body operators are constructed, so that they all act on the full Hilbert space. This is done
     ### via taking tensor products on lists of operators. 
     
     for n in range(size):
+        # use list comprehensions for shorter, clearer, and faster code:
+        # tmp_op = [id2 for k in range(size)] 
+        # tmp_op[n] = sx
+        # loc_sx_list.append(qutip.tensor(tmp_op))
+        # tmp_op[n] = sy
+        # loc_sy_list.append(qutip.tensor(tmp_op))
+        # tmp_op[n] = sz
+        # loc_sz_list.append(qutip.tensor(tmp_op))
+        # # and this one does not seems very useful, but OK...
+        # loc_globalid_list.append(loc_global_id)
         operator_list = []
         for m in range(size):
             operator_list.append(id2)
@@ -116,6 +126,8 @@ def spin_dephasing(op_list, size, gamma):
         loc_c_op_list = []; 
         loc_sz_list = op_list[3]
         collapse_weights = abs(gamma) * np.ones(size)
+        # A more Pythonic way to do the same...
+        # loc_c_op_list = [np.sqrt(w) * op for w, op in zip(collapse_weights, loc_sz_list)]
         loc_c_op_list = [np.sqrt(collapse_weights[n]) * loc_sz_list[n] for n in range(size)]
         return loc_c_op_list
 
@@ -126,7 +138,8 @@ def spin_dephasing(op_list, size, gamma):
 
 def all_two_body_spin_ops(op_list, size):
     loc_global_id_list, sx_list, sy_list, sz_list = op_list
-      
+
+    # The identity should not be here...
     pauli_four_vec = [loc_global_id_list, sx_list, sy_list, sz_list];
         
     sxsa_list = []; sysa_list = []; szsa_list = []; two_body_s = [];
@@ -142,7 +155,8 @@ def all_two_body_spin_ops(op_list, size):
     szsa_list = [sz_list[n] * pauli_four_vec[a][b] for n in range(size)
                                                    for a in range(len(pauli_four_vec))
                                                    for b in range(len(pauli_four_vec[a]))]
-    
+    # Notice that since you have added the identity, this contains also 0-body (the global id)
+    # and 1-body operators...
     two_body_s = [sxsa_list, sysa_list, szsa_list]
     return two_body_s
 
@@ -787,6 +801,19 @@ def build_reference_state(size, temp, Hamiltonian, lagrange_op, lagrange_mult, s
     return K, rho_ref
 
 def recursive_basis(depth, Hamiltonian, seed_op, rho0): 
+    """
+    Build a basis of the form 
+    [c_0(seed_op), c_1(seed_op), ... c_depth(seed_op)]
+    with c_0(op)=op-<op>
+    
+    c_1(op) = [Hamiltinian, op]-<[Hamiltinian, op]>
+    
+    c_{n+1}(op) = c_1(c_{n}(op))
+    
+    As a result, this is a zero-average basis of hermitician operators
+    that expands the order `depth` Dyson's series for
+    seed_op(t).
+    """
     basis = [seed_op]; loc_op = 0
     if depth > 0: 
         for i in range(1, depth):
@@ -799,6 +826,7 @@ def recursive_basis(depth, Hamiltonian, seed_op, rho0):
             basis.append(loc_op)
     elif (depth == 0):
         basis = []
+    # maybe it worth to  orthonormalize the basis here...
     return basis
 
 def vectorized_recursive_basis(depth_list, seed_ops_list, Hamiltonian, rho0):
@@ -807,15 +835,21 @@ def vectorized_recursive_basis(depth_list, seed_ops_list, Hamiltonian, rho0):
     #else:
     #    raise Exception("Incursive depth parameter must be natural") 
     
+    # Use this is more standard, shorter and  clearer:
+    # assert len(depth_list) == len(seed_ops_list), "Insufficient depth parameters"
     if len(depth_list) == len(seed_ops_list):
         pass
     else:
         raise Exception("Insufficient depth parameters")
         
     basis_rec = []
-    for i in range(len(seed_ops_list)): 
-        basis_rec.append(seed_ops_list[i])
-        basis_rec += recursive_basis(depth_list[i], Hamiltonian, seed_ops_list[i], rho0)
+    #for i in range(len(seed_ops_list)): 
+    for depth, op in zip(depth_list, seed_ops_list):
+        # This is already included in the basis comming from recursive_basis
+        # basis_rec.append(seed_ops_list[i])
+        basis_rec += recursive_basis(depth, Hamiltonian, op, rho0)
+        
+    # maybe it worth to  orthonormalize the basis here...
     return basis_rec
     
 # In [17]:
