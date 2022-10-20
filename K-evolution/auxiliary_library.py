@@ -12,8 +12,18 @@ import scipy.linalg as linalg
 ### This module checks if the matrix is positive definite ie. if all its eigenvalues are positive
 
 def ev_checks(rho):
-    evs_imag_part_zero = np.all(np.imag(linalg.eig(rho)[0]) <= 1e-10)
-    evs_real_part_pos = np.all(np.real(linalg.eig(rho)[0]) >= 1e-10)
+    if isinstance(rho, qutip.Qobj):
+        rho = rho.full()
+
+    # A more efficient way to check positivity:
+    #  try:
+    #       np.linalg.cholesky(rho)
+    #       return True
+    #  except LinAlgError:
+    #       return False
+    eigenvalues = linalg.eigvals(rho)
+    evs_imag_part_zero = np.all(abs(eigenvalues.imag) <= 1e-10)
+    evs_real_part_pos = np.all(eigenvalues.real >= 1e-10)
     return (evs_imag_part_zero and evs_real_part_pos)
 
 ### This module checks if the user-input quantum object, rho, is a density operator or not.
@@ -49,6 +59,18 @@ def anticommutator(A, B):
     return result
 
 def Hamiltonian_comm_check(Hamiltonian, basis, labels = None, remove_null = True):
+    """
+    Against what the name suggest, this function erases from `basis` those operators
+    that commute with H.
+    Then, it returns the new basis.
+    """
+    # Issues:
+    # * If the intent is to do what it is actually do, a better name would be
+    # "Hamiltonian_comm_basis_reduce"
+    # * Notice that the input basis is modified, so it is not necessary to return it
+    # * If what you want is to do a check, the return type should be "bool" and the 
+    #   basis should not be modified.
+    
     if type(basis) is dict:
         for i in basis.copy(): 
             print("[H, ", i, "] = 0?: ", null_matrix_check(commutator(Hamiltonian, basis[i])))
@@ -64,11 +86,17 @@ def Hamiltonian_comm_check(Hamiltonian, basis, labels = None, remove_null = True
 
 def basis_hermitian_check(basis):
     if type(basis) is dict:
-        basis = [basis[key] for key in basis]
-    a = False
-    for i in range(len(basis)):
-        a = qutip.isherm(basis[i])
-    return a
+        basis = basis.values()
+    # This is the same that asking for the last
+    # element. 
+    # a = False
+    # for i in range(len(basis)):
+    #    a = qutip.isherm(basis[i])
+    # return a
+    for b in basis:
+        if not qutip.isherm(basis[i]):
+            return False
+    return True
 
 # In [3]: 
 
