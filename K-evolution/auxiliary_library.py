@@ -9,9 +9,11 @@ import scipy.linalg as linalg
 
 # In [2]:
 
-### This module checks if the matrix is positive definite ie. if all its eigenvalues are positive
-
 def ev_checks(rho):
+    """
+    This module checks if the matrix is positive definite 
+    ie. if all its eigenvalues are positive
+    """
     if isinstance(rho, qutip.Qobj):
         rho = rho.full()
     try:
@@ -20,12 +22,17 @@ def ev_checks(rho):
         return False
     return True
 
-### This module checks if the user-input quantum object, rho, is a density operator or not.
-### This is done by checking if it is a hermitian, positive definite, trace-one, matrix.
-### Due to numerical instabilities, it may be possible that the trace is not exactly one, even though it is supposed to be,
-### Therefore, a cut-off is implemented to determine if rho is, at least trace-wise, a matrix operator. 
-
 def is_density_op(rho):
+    """
+    This module checks if the user-input quantum 
+    object, rho, is a density operator or not.
+    This is done by checking if it is a hermitian, 
+    positive definite, trace-one, matrix.
+    Due to numerical instabilities, it may be possible 
+    for the trace to not be exactly one, even though 
+    it is supposed to be. Therefore, a cut-off is 
+    implemented to check for this condition.
+    """
     return (qutip.isherm(rho) and (abs(1 - rho.tr()) < 10**-10) and ev_checks(rho))
 
 def non_hermitianess_measure(rho):
