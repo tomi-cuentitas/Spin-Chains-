@@ -14,17 +14,11 @@ import scipy.linalg as linalg
 def ev_checks(rho):
     if isinstance(rho, qutip.Qobj):
         rho = rho.full()
-
-    # A more efficient way to check positivity:
-    #  try:
-    #       np.linalg.cholesky(rho)
-    #       return True
-    #  except LinAlgError:
-    #       return False
-    eigenvalues = linalg.eigvals(rho)
-    evs_imag_part_zero = np.all(abs(eigenvalues.imag) <= 1e-10)
-    evs_real_part_pos = np.all(eigenvalues.real >= 1e-10)
-    return (evs_imag_part_zero and evs_real_part_pos)
+    try:
+        np.linalg.cholesky(rho)
+    except:
+        return False
+    return True
 
 ### This module checks if the user-input quantum object, rho, is a density operator or not.
 ### This is done by checking if it is a hermitian, positive definite, trace-one, matrix.
@@ -58,19 +52,14 @@ def anticommutator(A, B):
     result += A*B+B*A
     return result
 
-def Hamiltonian_comm_check(Hamiltonian, basis, labels = None, remove_null = True):
+def Hamiltonian_comm_basis_reduce(Hamiltonian, basis, labels = None, remove_null = True): # previously, Hamiltonian_comm_check
     """
-    Against what the name suggest, this function erases from `basis` those operators
-    that commute with H.
-    Then, it returns the new basis.
+    This function performs a test, cheking if the basis
+    elements commute with the system's Hamiltonian. 
+    If the remove null option is chosen, those operators
+    which commute with the Hamiltonian are erased. Then,
+    it returns the new basis.
     """
-    # Issues:
-    # * If the intent is to do what it is actually do, a better name would be
-    # "Hamiltonian_comm_basis_reduce"
-    # * Notice that the input basis is modified, so it is not necessary to return it
-    # * If what you want is to do a check, the return type should be "bool" and the 
-    #   basis should not be modified.
-    
     if type(basis) is dict:
         for i in basis.copy(): 
             print("[H, ", i, "] = 0?: ", null_matrix_check(commutator(Hamiltonian, basis[i])))
@@ -87,28 +76,27 @@ def Hamiltonian_comm_check(Hamiltonian, basis, labels = None, remove_null = True
 def basis_hermitian_check(basis):
     if type(basis) is dict:
         basis = basis.values()
-    # This is the same that asking for the last
-    # element. 
-    # a = False
-    # for i in range(len(basis)):
-    #    a = qutip.isherm(basis[i])
-    # return a
     for b in basis:
-        if not qutip.isherm(basis[i]):
+        if not qutip.isherm(b):
             return False
     return True
 
 # In [3]: 
 
-### Given an N-site spin chain, there are then 3N different, non-trivial, operators acting on the full Hilbert space.
-### N sigmax operators, N sigmay operators, N sigmaz operators, and a global identity operator. 
-### All these 3N+1-operators are constructed with a tensor product so that they all act on the full Hilbert space. 
-### All, but the global identity operator, act non-trivially only on one Hilbert subspace. 
 
 def one_body_spin_ops(size):
+    """
+    Given an N-site spin chain, there are then 3N different, 
+    non-trivial, operators acting on the full Hilbert space.
+    N sigmax operators, N sigmay operators, 
+    N sigmaz operators, and a global identity operator. 
+    All these 3N+1-operators are constructed with a tensor
+    product so that they all act on the full Hilbert space. 
+    All, but the global identity operator, act 
+    non-trivially only on one Hilbert subspace. 
+    """
     
     ### Basic, one-site spin operators are constructed.
-    
     loc_sx_list = []; loc_sy_list = []; loc_sz_list = []; loc_globalid_list = []
     id2 = qutip.qeye(2)
     sx = .5*qutip.sigmax()
@@ -116,7 +104,6 @@ def one_body_spin_ops(size):
     sz = .5*qutip.sigmaz()
     
     ### The global identity operator is constructed 
-    
     loc_global_id = [qutip.tensor([id2 for k in range(size)])]
     
     ### Lists of one-body operators are constructed, so that they all act on the full Hilbert space. This is done
@@ -124,50 +111,42 @@ def one_body_spin_ops(size):
     
     for n in range(size):
         # use list comprehensions for shorter, clearer, and faster code:
-        # tmp_op = [id2 for k in range(size)] 
-        # tmp_op[n] = sx
-        # loc_sx_list.append(qutip.tensor(tmp_op))
-        # tmp_op[n] = sy
-        # loc_sy_list.append(qutip.tensor(tmp_op))
-        # tmp_op[n] = sz
-        # loc_sz_list.append(qutip.tensor(tmp_op))
-        # # and this one does not seems very useful, but OK...
-        # loc_globalid_list.append(loc_global_id)
-        operator_list = []
-        for m in range(size):
-            operator_list.append(id2)
         loc_globalid_list.append(loc_global_id)
-        operator_list[n] = sx
-        loc_sx_list.append(qutip.tensor(operator_list))
-        
-        operator_list[n] = sy
-        loc_sy_list.append(qutip.tensor(operator_list))
-        
-        operator_list[n] = sz
-        loc_sz_list.append(qutip.tensor(operator_list))        
+        tmp_op = [id2 for k in range(size)] 
+        tmp_op[n] = sx
+        loc_sx_list.append(qutip.tensor(tmp_op))
+        tmp_op[n] = sy
+        loc_sy_list.append(qutip.tensor(tmp_op))
+        tmp_op[n] = sz
+        loc_sz_list.append(qutip.tensor(tmp_op))
     return loc_global_id, loc_sx_list, loc_sy_list, loc_sz_list
 
-### This module is relevant only if a non-unitary Lindblad evolution is chosen, it construcf a list of 
-### collapse operators, with its corresponding collapse factors. In particular, sz collapse operators are chosen. 
-
 def spin_dephasing(op_list, size, gamma):
-        loc_c_op_list = []; 
-        loc_sz_list = op_list[3]
-        collapse_weights = abs(gamma) * np.ones(size)
-        # A more Pythonic way to do the same...
-        # loc_c_op_list = [np.sqrt(w) * op for w, op in zip(collapse_weights, loc_sz_list)]
-        loc_c_op_list = [np.sqrt(collapse_weights[n]) * loc_sz_list[n] for n in range(size)]
-        return loc_c_op_list
+    """
+    This module is relevant only if a non-unitary 
+    Lindblad evolution is chosen, it construcf a 
+    list of collapse operators, with its corresponding 
+    collapse factors. In particular, sz collapse 
+    operators are chosen. 
+    """
+    loc_c_op_list = []; 
+    loc_sz_list = op_list[3]
+    collapse_weights = abs(gamma) * np.ones(size)
+    loc_c_op_list = [np.sqrt(w) * op for w, op in zip(collapse_weights, loc_sz_list)]
+    return loc_c_op_list
 
 # In [4]: 
 
-### This module constructs all pair-wise combinations (ie. correlators) of non-trivial one-body operators (ie. sx, sy, sz operators only). 
-### There are N(N+1)/2 different correlators in an N-site spin chain.
-
-def all_two_body_spin_ops(op_list, size):
+def all_upto_two_body_spin_ops(op_list, size):
+    """
+    This module constructs all pair-wise combinations
+    (ie. correlators) of trivial and non-trivial 
+    one-body operators (ie. sx, sy, sz operators only)
+    Note that there are N(N+1)/2 different correlators  
+    in an N-site spin chain.
+    """
     loc_global_id_list, sx_list, sy_list, sz_list = op_list
 
-    # The identity should not be here...
     pauli_four_vec = [loc_global_id_list, sx_list, sy_list, sz_list];
         
     sxsa_list = []; sysa_list = []; szsa_list = []; two_body_s = [];
@@ -190,10 +169,12 @@ def all_two_body_spin_ops(op_list, size):
 
 # In [5]: 
 
-### This module is redundant in its current form. It basically either constructs all two-body correlators 
-### or some subset of these. 
-
 def two_body_spin_ops(op_list, size, build_all = False):
+    """
+    This module is redundant in its current form. 
+    It basically either constructs all two-body 
+    correlators or some subset of these. 
+    """
     loc_list = []
     if build_all:
         loc_list = all_two_body_spin_ops(op_list, N)
@@ -214,9 +195,13 @@ def two_body_spin_ops(op_list, size, build_all = False):
 
 # In [6]: 
 
-### This module constructs the Heisenberg Hamiltonian for different types of systems, according to some user-inputed parameters. 
-
 def Heisenberg_Hamiltonian(op_list, chain_type, size, Hamiltonian_paras, closed_bcs = True, visualization = False):
+    """
+    This module constructs the Heisenberg Hamiltonian for
+    different types of systems, according to some 
+    user-inputed parameters. 
+    """
+    
     spin_chain_type = ["XX", "XYZ", "XXZ", "XXX", "Anderson"]
     loc_globalid_list, sx_list, sy_list, sz_list = op_list       
           
@@ -307,9 +292,15 @@ def prod_basis(b1, b2):
     return [qutip.tensor(b,s) for b in b1 for s in b2]
 
 def HS_inner_prod_t(op1, op2, rho0 = None): ### previous name: HS_inner_prod(A, B, rho0 = None):
-    if (op1.dims[0][0]==op2.dims[0][0]):    ### Formally, this is the correct Hilbert-Schmidt inner product
-        pass                                ### It is a complex valued inner product on the space of all endomorphisms 
-    else:                                   ### acting on the N-partite Hilbert space 
+    """
+    Formally, this is the correct Hilbert-Schmidt 
+    inner product. It is a complex valued inner 
+    product on the space of all endomorphisms 
+    acting on the N-partite Hilbert space 
+    """
+    if (op1.dims[0][0]==op2.dims[0][0]):   
+        pass                                
+    else:                                   
         raise Exception("Incompatible Qobj dimensions")
     
     if rho0 is None:
@@ -320,68 +311,65 @@ def HS_inner_prod_t(op1, op2, rho0 = None): ### previous name: HS_inner_prod(A, 
             pass
         else:
             sys.exit("rho0 is not a density op")
-        
-    result = 0
-    result += (rho0 * (op1.dag() * op2)).tr()    
-    return result
+    return (rho0 * (op1.dag() * op2)).tr()
 
 def HS_inner_prod_r(op1, op2, rho0 = None): ### This inner product is real valued, provided both op1 and op2 are hermitian
-    if (op1.dims[0][0]==op2.dims[0][0]):    ### and is easier to compute when dealing with spin chains, as the operator themselves 
-        pass                                ### can be written as tensor products of local operators. A global-trace is then a product 
-    else:                                   ### of traces over local Hilbert spaces
-        raise Exception("Incompatible Qobj dimensions")
-    
+    """
+    Real-valued Hilbert-Schmidt inner product.
+    Easier to compute for spin chains, as the 
+    operator themselves can be written as 
+    tensor products of local 1-body operatos.
+    A global trace is then a product of traces
+    over local Hilbert spaces. 
+    """
+    assert (op1.dims[0][0]==op2.dims[0][0]), "Incompatible Qobj dimensions"
     if rho0 is None:
         rho0 = qutip.qeye(op1.dims[0])
         rho0 = rho0/rho0.tr()
     else:
-        if (is_density_op(rho0)):
-            pass
-        else:
-            sys.exit("rho0 is not a density op")
-        
-    result = 0
-    result += .5 * (rho0 * anticommutator(op1.dag(), op2)).tr()    
-    return result
+        assert is_density_op(rho0), "rho0 is not a density op" 
+    return .5 * (rho0 * anticommutator(op1.dag(), op2)).tr()
 
 def HS_inner_norm(op, rho0, sc_prod): ### previous name: mod_HS_inner_norm
     return sc_prod(op, op, rho0)
 
 def HS_normalize_op(op, rho0, sc_prod):
-    op = op/sc_prod(op, op, rho0)
-    return op
+    return op/sc_prod(op, op, rho0)
 
 def HS_distance(rho, sigma, rho0, sc_prod):
-    if rho.dims[0][0]==sigma.dims[0][0]:
-        pass
-    else:
-        raise Exception("Incompatible Qobj dimensions")
-    
+    assert rho.dims[0][0]==sigma.dims[0][0], "Incompatible Qobj dimensions"
     return sc_prod(rho, sigma, rho0)
 
-def base_orth(ops, rho0, sc_prod, visualization = False):
-    
+def base_orth(ops, rho0, sc_prod, visualization = False, reinforce_reality=False):
     if isinstance(ops, dict):
-        ops = [ops[key] for key in ops]
+        ops = ops.values()
     if isinstance(ops[0], list):
         ops = [op for op1l in ops for op in op1l]
     dim = ops[0].dims[0][0]
     basis = []
     for i, op in enumerate(ops): 
-        alpha = [sc_prod(op2, op, rho0) for op2 in basis]
+        op_norm = np.sqrt(sc_prod(op, op, rho0))
+        op = op / op_norm
+        alpha = np.array([sc_prod(op2, op, rho0) for op2 in basis])
         if visualization:
             print(alpha)
+        if reinforce_reality:
+            alpha = alpha.real
         op_mod = op - sum([c*op2 for c, op2, in zip(alpha, basis)])
         op_norm = np.sqrt(sc_prod(op_mod,op_mod,rho0))
-        if op_norm > 1.e-10:
+        if op_norm > 1.e-5:
+            if visualization:
+                print("*****************norm", op_norm)
             op_mod = op_mod/(op_norm)
             basis.append(op_mod)
+        else:
+            if visualization:
+                print("*****************skip", op, " of norm", op_norm)
     return basis
 
 # In [7]: 
 
 natural = tuple('123456789')
-
 def n_body_basis(op_list, gr, N):
     basis = []
     globalid_list, sx_list, sy_list, sz_list = op_list       
@@ -511,7 +499,6 @@ def choose_initial_state_type(op_list, N, build_all, x, gaussian, gr):
       
     if gaussian:
          print(statement + " initial state chosen")
-            
     return rho0
 
 # In [12]: 
@@ -522,10 +509,7 @@ def logM(rho, svd = True):
         matrix_log = U @ np.diag(np.log(Sigma)) @ Vdag 
         #matrix_log = qutip.Qobj(U) * qutip.Qobj(np.diag(np.log(Sigma))) * qutip.Qobj(np.array(Vdag))
     else: 
-        if ev_checks(rho):
-            pass
-        else:
-            raise Exception("Non positive-defined input matrix")
+        assert ev_checks(rho), "Non positive-defined input matrix"
         eigvals, eigvecs = rho.eigenstates()
         matrix_log = sum([np.log(vl)*vc*vc.dag() for vl, vc in zip(eigvals, eigvecs)]) 
     
@@ -538,10 +522,7 @@ def sqrtM(rho, svd = True):
         U, Sigma, Vdag = linalg.svd(rho, full_matrices = False)
         matrix_sqrt = U @ np.diag(Sigma**.5) @ Vdag 
     else: 
-        if ev_checks(rho):
-            pass
-        else:
-            raise Exception("Non positive-defined input matrix")
+        assert ev_checks(rho), "Non positive-defined input matrix"
         eigvals, eigvecs = rho.eigenstates()
         matrix_sqrt = sum([np.sqrt(vl)*vc*vc.dag() for vl, vc in zip(eigvals, eigvecs)]) 
         
@@ -555,11 +536,9 @@ def bures(rho, sigma, svd = True):
         U_sigma, Sigma_sigma, Vdag_sigma = linalg.svd(sigma)
         val1 = abs((sqrtM(sigma, True) * qutip.Qobj(rho) * sqrtM(sigma, True)).tr())
     else:
-        if (is_density_op(rho) and is_density_op(sigma)):
-            val1 = (sqrtM(sigma, False) * rho * sqrtM(sigma, False)).tr()
-            val1 = abs(val1)
-        else: 
-            sys.exit("Either rho or sigma not density operators")
+        assert (is_density_op(rho) and is_density_op(sigma)), ("Either rho or sigma not density operators")
+        val1 = (sqrtM(sigma, False) * rho * sqrtM(sigma, False)).tr()
+        val1 = abs(val1)
     #val1 = max(min(val1, 1.),-1.)
     val1 = np.arccos(val1)/np.pi
     return val1
@@ -573,12 +552,9 @@ def rel_entropy(rho, sigma, svd = True):
     if svd:
         val = (rho*(logM(rho, True) - logM(sigma, True))).tr()
     else:
-        if (ev_checks(rho) and ev_checks(sigma)):
-            pass
-        else:
-            raise Exception("Either rho or sigma non positive")
+        assert ((ev_checks(rho) and ev_checks(sigma))), "Either rho or sigma non positive"
         val = (rho*(logM(rho, False)-logM(sigma, False))).tr()
-        if (abs(val.imag - 0)>1.e-6):
+        if (abs(val.imag - 0)>1.e-10):
             val = None
             raise Exception("Either rho or sigma not positive")
     return val.real
@@ -652,9 +628,9 @@ def legacy_classical_ops(n, Hamiltonian):
 def classical_ops(Hamiltonian, N, op_list, centered_x_op = False):
     
     identity_op = op_list[0][0]; sz_list = op_list[3]    
-    labels = ["x_op", "p_op", "n_oc_op", "comm_xp", "corr_xp", "p_dot"]
+    labels = ["identity_op", "x_op", "p_op", "n_oc_op", "comm_xp", "corr_xp", "p_dot", "n_oc_disp"]
     
-    cl_ops = {}
+    cl_ops = {"identity_op": identity_op}
     if centered_x_op:
         cl_ops["x_op"] = sum((.5 + sz_list[k])*(k+1) for k in range(len(sz_list)))
     else:
@@ -665,6 +641,7 @@ def classical_ops(Hamiltonian, N, op_list, centered_x_op = False):
     cl_ops["comm_xp"] = .5 * anticommutator(cl_ops["x_op"], cl_ops["p_op"])
     cl_ops["corr_xp"] = -1j * commutator(cl_ops["x_op"], cl_ops["p_op"])
     cl_ops["p_dot"] = 1j * commutator(Hamiltonian, cl_ops["p_op"])
+    cl_ops["n_oc_disp"] = (cl_ops["n_oc_op"]-1.)**2
     
     for i in range(len(labels)):
         if qutip.isherm(cl_ops[labels[i]]):
@@ -804,7 +781,6 @@ def spin_chain_ev(size, init_state, chain_type, closed_bcs, Hamiltonian_paras, o
                      "Two body basis": two_body_basis, "Closed ev": unitary_ev, "Colapse parameters": gamma, 
                      "Gaussian ev": gaussian, "Gaussian order": gr, "Non-gaussian para": xng, "Type of inner product": sc_prod,
                      "no. observables returned": len(obs), "Proj. ev": do_project}
-    
     return title, ev_parameters, result
 
 # In [16]: 
@@ -812,29 +788,27 @@ def spin_chain_ev(size, init_state, chain_type, closed_bcs, Hamiltonian_paras, o
 def build_reference_state(size, temp, Hamiltonian, lagrange_op, lagrange_mult, svd = True):
     ### building the reference state
     k_B = 1; beta = 1/(k_B * temp); 
-    K = -beta * ((1-lagrange_mult) * Hamiltonian - lagrange_mult * (lagrange_op - 1)**2)
-    K = K/(K.tr()) 
-    rho_ref = (K).expm()
-    rho_ref = rho_ref/rho_ref.tr()
-    if is_density_op(rho_ref):
-        pass
+    K = -beta * (Hamiltonian - lagrange_mult * (lagrange_op - 1)**2)
+    if svd:
+        K = K - qutip.Qobj(np.diag(linalg.svd(K)[1]), K.dims)
     else:
+        K = K - max(K.eigenenergies(K)) 
+    rho_ref = K.expm()
+    rho_ref = rho_ref/rho_ref.tr()
+    if not is_density_op(rho_ref):
         if (not qutip.isherm(rho_ref) or non_hermitianess_measure(rho_ref) < 1e-10):
             rho_ref = .5 * (rho_ref + rho_ref.dag())
         if not ev_checks(rho_ref):
             sys.exit("Singular density op")
-            
-    #if svd:     #    Ks_max_value = max(linalg.svd(K)[1])
-    #if not svd:    #    Ks_max_value = min(linalg.eigvals(K).real)
     return K, rho_ref
 
-def recursive_basis(depth, Hamiltonian, seed_op, rho0): 
+def recursive_basis(depth, seed_op, Hamiltonian, rho0): 
     """
     Build a basis of the form 
     [c_0(seed_op), c_1(seed_op), ... c_depth(seed_op)]
     with c_0(op)=op-<op>
     
-    c_1(op) = [Hamiltinian, op]-<[Hamiltinian, op]>
+    c_1(op) = [Hamiltonian, op]-<[Hamiltonian, op]>
     
     c_{n+1}(op) = c_1(c_{n}(op))
     
@@ -857,27 +831,15 @@ def recursive_basis(depth, Hamiltonian, seed_op, rho0):
     # maybe it worth to  orthonormalize the basis here...
     return basis
 
-def vectorized_recursive_basis(depth_list, seed_ops_list, Hamiltonian, rho0):
-    #if np.all([(isinstance(di,int) and di >= 0) for di in depth_list]):
-    #    pass
-    #else:
-    #    raise Exception("Incursive depth parameter must be natural") 
+def vectorized_recursive_basis(depth_and_ops, Hamiltonian, rho0):
+    depth_list = [depth_and_ops[i][0] for i in range(len(depth_and_ops))]
+    ops_list = [depth_and_ops[i][1] for i in range(len(depth_and_ops))]
+    assert np.all([isinstance(di, int) and di>= 0 
+                   for di in depth_list])
     
-    # Use this is more standard, shorter and  clearer:
-    # assert len(depth_list) == len(seed_ops_list), "Insufficient depth parameters"
-    if len(depth_list) == len(seed_ops_list):
-        pass
-    else:
-        raise Exception("Insufficient depth parameters")
-        
-    basis_rec = []
-    #for i in range(len(seed_ops_list)): 
-    for depth, op in zip(depth_list, seed_ops_list):
-        # This is already included in the basis comming from recursive_basis
-        # basis_rec.append(seed_ops_list[i])
-        basis_rec += recursive_basis(depth, Hamiltonian, op, rho0)
-        
-    # maybe it worth to  orthonormalize the basis here...
+    basis_rec = ops_list
+    for di, opi in zip(depth_list, ops_list):
+        basis_rec += recursive_basis(di, opi, Hamiltonian, rho0)
     return basis_rec
     
 # In [17]:
@@ -1005,8 +967,6 @@ def plot_exact_v_proj_ev_avgs(observables, label, ts, res_proj_ev, res_exact):
         ax.legend(loc=0)
         ax.set_title("Expected values: Proj-ev. v. Exact for " + label[k])
     plt.show()
-    
-    
     
 def mesolve(H, rho0, tlist, c_ops=None, e_ops=None,**kwargs):
     """
