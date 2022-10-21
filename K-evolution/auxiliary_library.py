@@ -1005,3 +1005,27 @@ def plot_exact_v_proj_ev_avgs(observables, label, ts, res_proj_ev, res_exact):
         ax.legend(loc=0)
         ax.set_title("Expected values: Proj-ev. v. Exact for " + label[k])
     plt.show()
+    
+    
+    
+def mesolve(H, rho0, tlist, c_ops=None, e_ops=None,**kwargs):
+    """
+    This function is a wrapper for qutip.mesolve, that allows
+    to get rho and the expectection values at the same time.
+    """
+    from typing import Callable
+    if e_ops is None or isinstance(e_ops, Callable):
+        return qutip.mesolve(H, rho0, tlist, c_ops, e_ops=e_ops, **kwargs)
+    
+    result = qutip.solver.Result()
+    result.expect = [[] for e in e_ops]
+    result.times = []
+
+    def callback(t, rho):
+        result.times.append(t)
+        result.states.append(rho)
+        for i, e in enumerate(e_ops):
+            result.expect[i].append(qutip.expect(rho, e))
+
+    qutip.mesolve(H, rho0, tlist, c_ops, e_ops=callback, **kwargs)
+    return result
