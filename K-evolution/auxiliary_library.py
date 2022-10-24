@@ -500,6 +500,17 @@ def rel_entropy(rho, sigma, svd = True):
             raise Exception("Either rho or sigma not positive")
     return val.real
 
+def bures_vectorized(rhot_list, sigmat_list):
+    assert len(rhot_list) == len(sigmat_list), "Lists not of the same length"
+    bures_list_vcz = [bures(rhot_list[t], sigmat_list[t]) for t in range(len(rhot_list))]
+    return bures_list_vcz
+
+def relative_entropies_vectorized(rhot_list, sigmat_list):
+    assert len(rhot_list) == len(sigmat_list), "Lists not of the same length"
+    rel_rho_v_sigma = [rel_entropy(rhot_list[t], sigmat_list[t]) for t in range(len(rhot_list))]
+    rel_sigma_v_rho = [rel_entropy(sigmat_list[t], rhot_list[t]) for t in range(len(rhot_list))]
+    return rel_rho_v_sigma, rel_sigma_v_rho
+
 # In [9]:
         
 def classical_ops(Hamiltonian, N, op_list, centered_x_op = False):
@@ -689,13 +700,13 @@ def visz_H_tensor_evs(Htensor):
     ax1.set_title("H-tensor's eigenvalues' real and imag part")
 
 def plot_exact_v_proj_ev_avgs(observables, label, ts, res_proj_ev, res_exact):
-    Tot = len(observables); Cols = 2
+    Tot = len(observables); Cols = 3
     Rows = Tot // Cols 
     if Tot % Cols != 0:
         Rows += 1
     Position = range(1,Tot + 1)
     z = ts[:-1]
-    fig = plt.figure(figsize=(16, 32))
+    fig = plt.figure(figsize=(18, 14))
     for k in range(Tot):
         ax = fig.add_subplot(Rows,Cols,Position[k])
         ax.plot(z, res_exact.expect[k][:-1], label = "Exact")
@@ -703,6 +714,35 @@ def plot_exact_v_proj_ev_avgs(observables, label, ts, res_proj_ev, res_exact):
         ax.legend(loc=0)
         ax.set_title("Expected values: Proj-ev. v. Exact for " + label[k])
     plt.show()
+
+def exact_v_proj_ev_matrix_metrics(ts, res_proj_ev_rhot_list, res_exact):
+    #exact_vn_entropy = [qutip.entropy_vn(rho) for rho in res_exact.states]
+    #proj_ev_vn_entropy = [qutip.entropy_vn(rho) for rho in res_proj_ev_rhot_list]
+    
+    ts_prime = ts[:-1]
+    bures_exact_v_proj_ev_list = bures_vectorized(rhot_list = res_proj_ev_rhot_list,
+                                                  sigmat_list = res_exact.states[:-1])
+    
+    relent_ex_v_proj_ev_list, relent_proj_ev_v_ex = relative_entropies_vectorized(rhot_list = res_proj_ev_rhot_list,
+                                                                                  sigmat_list = res_exact.states[:-1])
+    
+    return bures_exact_v_proj_ev_list, relent_ex_v_proj_ev_list, relent_proj_ev_v_ex
+
+def plot_exact_v_proj_ev_metrics(ts, res_proj_ev_rhot_list, res_exact, label_metric):
+    metric_local = exact_v_proj_ev_matrix_metrics(ts, res_proj_ev_rhot_list, res_exact)
+    Tot = len(label_metric); Cols = 3
+    Rows = Tot // Cols 
+    if Tot % Cols != 0:
+        Rows += 1
+    Position = range(1,Tot + 1)
+    z = ts[:-1]
+    fig = plt.figure(figsize=(10, 5))
+    for k in range(Tot):
+        ax = fig.add_subplot(Rows,Cols,Position[k])
+        ax.plot(z, metric_local[k], label = "Exact v. Proj ev: " + label_metric[k])
+        ax.legend(loc=0)
+        ax.set_title("Matrix metrics")
+    plt.show()    
     
 def mesolve(H, rho0, tlist, c_ops=None, e_ops=None,**kwargs):
     """
