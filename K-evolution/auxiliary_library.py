@@ -100,7 +100,7 @@ def Hamiltonian_comm_basis_reduce(Hamiltonian, basis, labels = None, remove_null
                 print(i, "basis element deleted")
     if type(basis) is list:
         for i in range(len(basis)):
-            print("[H, ", labels[i], "] = 0?: ", null_matrix_check(commutator(Hamiltonian, basis[i])))
+            print("[H, ", i, "] = 0?: ", null_matrix_check(commutator(Hamiltonian, basis[i])))
             if remove_null and null_matrix_check(commutator(Hamiltonian, basis[key])):
                 basis.pop()
     return basis
@@ -108,10 +108,7 @@ def Hamiltonian_comm_basis_reduce(Hamiltonian, basis, labels = None, remove_null
 def basis_hermitian_check(basis):
     if type(basis) is dict:
         basis = basis.values()
-    for b in basis:
-        if not qutip.isherm(b):
-            return False
-    return True
+    return [null_matrix_check(op - op.dag()) for op in basis]
 
 # In [3]: 
 
@@ -266,8 +263,8 @@ def Heisenberg_Hamiltonian(op_list, chain_type, size, Hamiltonian_paras, closed_
                 -.5 * Jz * (sz_list[N-1] * sz_list[0])
         
         elif (chain_type == "XYZ"):
-            Jy = Hamiltonian_paras[1] * 2 * np.pi #* np.ones(N)
-            Jz = Hamiltonian_paras[2] * 2 * np.pi #* np.ones(N)
+            Jy = Hamiltonian_paras[1] * 2 * np.pi 
+            Jz = Hamiltonian_paras[2] * 2 * np.pi 
             H += sum(-.5 * Jx * (sx_list[n] * sx_list[n+1]) 
                      -.5 * Jy * (sy_list[n] * sy_list[n+1]) 
                      -.5 * Jz * (sz_list[n] * sz_list[n+1]) for n in range(N-1))
@@ -283,7 +280,6 @@ def Heisenberg_Hamiltonian(op_list, chain_type, size, Hamiltonian_paras, closed_
               
     if visualization:
         qutip.hinton(H)
-    
     assert non_hermitianess_measure(H) < 1e-5, "Non-hermitian Hamiltonian obtained" 
     return H
 
@@ -388,7 +384,6 @@ def base_orth(ops, rho0, sc_prod, visualization = False, reinforce_reality=False
         ops = [ops[key] for key in ops]
     if isinstance(ops[0], list):
         ops = [op for op1l in ops for op in op1l]
-    dim = ops[0].dims[0][0]
     basis = []
     for i, op in enumerate(ops): 
         op_norm = np.sqrt(sc_prod(op, op, rho0))
@@ -563,7 +558,7 @@ def recursive_basis(depth, seed_op, Hamiltonian, rho0):
     [c_0(seed_op), c_1(seed_op), ... c_depth(seed_op)]
     with c_0(op)=op-<op>
     
-    c_1(op) = [Hamiltonian, op]-<[Hamiltonian, op]>
+    c_1(op) = [Hamiltonian, op]-<[Hamiltonian, op]> id_M
     
     c_{n+1}(op) = c_1(c_{n}(op))
     
@@ -587,7 +582,7 @@ def recursive_basis(depth, seed_op, Hamiltonian, rho0):
 def vectorized_recursive_basis(depth_and_ops, Hamiltonian, rho0):        
     basis_rec = []
     for depth, op in depth_and_ops: 
-        basis_rec += recursive_basis(depth, Hamiltonian, op, rho0)
+        basis_rec += recursive_basis(depth, op, Hamiltonian, rho0)
     return basis_rec
     
 # In [11]:
@@ -601,10 +596,6 @@ def basis_orthonormality_check(basis, rho0, sc_prod):
     hermitian_basis = [non_hermitianess_measure(op1) <= 1e-10 for op1 in basis]
     assert np.all(hermitian_basis), ("Not all the operators are "
                                      f"hermitician:\n {hermitian_basis}")
-
-    null_averages = [np.real((rho0 * op1).tr()) <= 1e-10 for op1 in basis]
-    assert all(null_averages[1:]), ("Some operators do not have a null average:\n" 
-                                    f"{null_averages}")
     
     gram_matrix = [[sc_prod(op2, op1, rho0) for op2 in basis] for op1 in basis]
     normalized = [abs(gram_matrix[i][i]-1.) <= 1e-10  for i in range(dim)]
@@ -613,21 +604,42 @@ def basis_orthonormality_check(basis, rho0, sc_prod):
 
     assert (linalg.norm((np.identity(dim) - gram_matrix) <= 1e-10)), "Not all operators are pair-wise orthogonal"
     print("The basis is orthonormal and hermitian")
+
+    null_averages = [np.real((rho0 * op1).tr()) <= 1e-6 for op1 in basis]
+    assert all(null_averages[1:]), ("Some operators do not have a null average:\n" 
+                                    f"{null_averages}")
     return True
 
 # In [12]:
 
-def build_rho0_from_basis(basis, temp=1.):
-    phi0 = [np.random.rand()/temp for b in basis]
+def build_rho0_from_basis(basis, temp):
+    beta = 1/temp; phi0 = [0] + [np.random.rand() for b in range(1,len(basis))]
     k0 = -sum( f*op for f,op in zip(phi0, basis))
-    k0 = k0 - max(k0.eigenenergies())
-    rho0 = (k0).expm()
-    normalizacion = rho0.tr()
-    rho0 = rho0 / normalizacion
+    rho0 = (beta * k0).expm()
+    phi0[0] = np.log(rho0.tr())
+    k0 = -sum( f*op for f,op in zip(phi0, basis))
+    rho0 = (beta * k0).expm()
     assert is_density_op(rho0, verbose=True), "rho is not a density matrix."
     return phi0, rho0
 
 def semigroup_phit_and_rhot_sol(phi0, rho0, Htensor, ts, basis):
+    """
+    This module constructs the solution to the differential equation:
+    
+    dphi(t)/dt = Htensor * phi(t),
+    
+    where Htensor is a real-valued N x N matrix. From this phit-list,
+    the rhot-list is constructed.
+    
+    This module takes as parameters:
+    
+    *. an initial configuration of parameters for the chosen basis, phi0,
+    *. an initial density matrix,
+    *. an H-tensor, constructed from the basis,
+    *. a list of times,
+    *. and the basis of operators.
+    """
+    
     Phi_vector_solution = []; rho_at_timet = []
     phi0=np.array(phi0)
     Phi_vector_solution.append(phi0); rho_at_timet.append(rho0)
