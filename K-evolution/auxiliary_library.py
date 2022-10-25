@@ -22,7 +22,7 @@ def ev_checks(rho):
         return False
     return True
 
-def is_density_op(rho, verbose=False, critical=False):
+def is_density_op(rho, verbose=False, critical=False, tol = 1e-10):
     """
     This module checks if the user-input Qobj,
     rho, is a density operator or not. This is done 
@@ -43,7 +43,7 @@ def is_density_op(rho, verbose=False, critical=False):
             print("rho is not hermitian")
         assert not critical
         return False
-    if abs(1 - rho.tr()) > 1e-10:
+    if abs(1 - rho.tr()) > tol:
         if verbose:
             print("Tr rho != 1")
         assert not critical
@@ -573,7 +573,7 @@ def recursive_basis(depth, seed_op, Hamiltonian, rho0):
     
     c_{n+1}(op) = c_1(c_{n}(op))
     
-    As a result, this is a zero-average basis of hermitician operators
+    As a result, this is a zero-average basis of hermitian operators
     that expands the order `depth` Dyson's series for
     seed_op(t).
     """
@@ -606,7 +606,7 @@ def basis_orthonormality_check(basis, rho0, sc_prod):
     dim = len(basis)
     hermitian_basis = [non_hermitianess_measure(op1) <= 1e-10 for op1 in basis]
     assert np.all(hermitian_basis), ("Not all the operators are "
-                                     f"hermitician:\n {hermitian_basis}")
+                                     f"hermitian:\n {hermitian_basis}")
     
     gram_matrix = [[sc_prod(op2, op1, rho0) for op2 in basis] for op1 in basis]
     normalized = [abs(gram_matrix[i][i]-1.) <= 1e-10  for i in range(dim)]
@@ -662,8 +662,7 @@ def semigroup_phit_and_rhot_sol(phi0, rho0, Htensor, ts, basis):
         Phi_vector_solution.append(new_phi)
         K = -sum( f*op for f,op in zip(new_phi, basis))
         K = K - max(K.eigenenergies()) 
-        # assert K.isherm, "K is not Hermitician "
-        if not K.isherm:
+        if not (np.linalg.norm( (K-K.dag()).full()) < 1e-5):
             print("Non hermitician part norm:", np.linalg.norm( (K-K.dag()).full())  )
             assert K.isherm, "K is not Hermitician "
         rhot= K.expm()
