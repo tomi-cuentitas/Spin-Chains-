@@ -45,7 +45,7 @@ def is_density_op(rho, verbose=False, critical=False, tol = 1e-10):
         return False
     if abs(1 - rho.tr()) > tol:
         if verbose:
-            print("Tr rho != 1")
+            print("Tr rho != 1, Tr rho = ", rho.tr())
         assert not critical
         return False
     if not ev_checks(rho):
@@ -543,13 +543,15 @@ def classical_ops(Hamiltonian, N, op_list, centered_x_op = False):
 def build_reference_state(temp, Hamiltonian, lagrange_op, lagrange_mult):
     """
     This module constructs a gaussian reference 
-    state to be used by the Hilbert-Schmidt 
+    state, to then be used by the Hilbert-Schmidt 
     inner-products. It takes as parameters
     
-    *. a temperature, 
-    *. a Hamiltonian,
-    *. a custom hermitian operator with
-    *. an associated real-valued weight.
+    ***. a temperature, 
+    ***. a Hamiltonian,
+    ***. a custom hermitian operator with
+    ***. an associated real-valued weight.
+    
+    It returns a gaussian state
     """
     ### building the reference state
     k_B = 1; beta = 1/(k_B * temp); 
@@ -602,7 +604,7 @@ def H_ij_matrix(Hamiltonian, basis, rho0, sc_prod):
     coeffs_matrix = np.array([[sc_prod(op1, -1j * commutator(Hamiltonian, op2), rho0) for op2 in basis] for op1 in basis])
     return coeffs_matrix
 
-def basis_orthonormality_check(basis, rho0, sc_prod): 
+def basis_orthonormality_check(basis, rho0, sc_prod, visualization_Gram_m = False): 
     dim = len(basis)
     hermitian_basis = [non_hermitianess_measure(op1) <= 1e-10 for op1 in basis]
     assert np.all(hermitian_basis), ("Not all the operators are "
@@ -619,7 +621,13 @@ def basis_orthonormality_check(basis, rho0, sc_prod):
     null_averages = [np.real((rho0 * op1).tr()) <= 1e-6 for op1 in basis]
     assert all(null_averages[1:]), ("Some operators do not have a null average:\n" 
                                     f"{null_averages}")
-    return True
+    
+    gram_matrix = qutip.Qobj(gram_matrix)
+    if visualization_Gram_m:
+        gram_eigen = gram_matrix.eigenenergies()
+        plt.scatter([i+1 for i in range(len(gram_eigen))], gram_eigen, 
+        label = "Gram matrix eigenvalues")
+    return gram_matrix
 
 # In [12]:
 
@@ -630,7 +638,7 @@ def build_rho0_from_basis(basis, temp):
     phi0[0] = np.log(rho0.tr())
     k0 = -sum( f*op for f,op in zip(phi0, basis))
     rho0 = (beta * k0).expm()
-    assert is_density_op(rho0, verbose=True), "rho is not a density matrix."
+    #assert is_density_op(rho0, verbose=True), "rho is not a density matrix."
     return phi0, rho0
 
 def semigroup_phit_and_rhot_sol(phi0, rho0, Htensor, ts, basis):
