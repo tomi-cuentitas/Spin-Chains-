@@ -631,8 +631,14 @@ def basis_orthonormality_check(basis, rho0, sc_prod, visualization_Gram_m = Fals
 
 # In [12]:
 
-def build_rho0_from_basis(basis, temp):
-    beta = 1/temp; phi0 = [0] + [np.random.rand() for b in range(1,len(basis))]
+def build_rho0_from_basis(coeff_list, basis, temp):    
+    beta = 1/temp
+    
+    if coeff_list == None:
+        phi0 = [0] + [np.random.rand() for b in basis[1:]]
+    else:
+        phi0 = coeff_list    
+    
     k0 = -sum( f*op for f,op in zip(phi0, basis))
     rho0 = (beta * k0).expm()
     phi0[0] = np.log(rho0.tr())
@@ -674,8 +680,6 @@ def semigroup_phit_and_rhot_sol(phi0, rho0, Htensor, ts, basis):
             print("Non hermitician part norm:", np.linalg.norm( (K-K.dag()).full())  )
             assert K.isherm, "K is not Hermitician "
         rhot= K.expm()
-        #if (rhot.tr() < 1e-6):
-        #   continue 
         rho_at_timet.append(rhot/rhot.tr())
     return rho_at_timet, Phi_vector_solution    
 
@@ -751,7 +755,7 @@ def plot_exact_v_proj_ev_metrics(ts, res_proj_ev_rhot_list, res_exact, label_met
         ax.set_title("Matrix metrics")
     plt.show()    
     
-def mesolve(H, rho0, tlist, c_ops=None, e_ops=None,**kwargs):
+def mod_mesolve(H, rho0, tlist, c_ops=None, e_ops=None,**kwargs):
     """
     Wrapper for the qutip.mesolve function that allows to get
     both the expectation values and the operators.
@@ -772,6 +776,148 @@ def mesolve(H, rho0, tlist, c_ops=None, e_ops=None,**kwargs):
 
     qutip.mesolve(H, rho0, tlist, c_ops, e_ops=callback, **kwargs)
     return result
+
+# In [14]:
+
+def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
+                    depth_and_seed_ops, observables, label_ops, coeff_list = None, 
+                    visualize_H_evs = False, visualization_nonherm = False, visualize_expt_vals = True):
+    """
+    This module constructs the adjoint K-evolution of 
+    a quantum dynamical system. It takes as parameters:
+    
+    ***. a reference temperature, temp_ref
+    ***. the system's physical temperature, temp_rho,
+    ***. a list of times for which the evolution is to
+         be calculated,
+    ***. the system's Hamiltonian,
+    ***. a hermitian operator, whose initial ensemble-
+         average is fixed via a lagrangian multiplier. 
+    ***. a list of tuples of natural numbers and chosen
+         operators, from which an incursive basis can be 
+         constructed,
+    ***. a chosen set of observables,
+    ***. NO ESTOY SEGURO :(
+    ***. (Optional): a boolean option for visualizing the 
+                     H-tensor's eigenvalues. 
+                     Default = False.
+    ***. (Optional): a boolean option for visualizing the 
+                     non-hermiticity of the approximated 
+                     density states. 
+                     Default = False. 
+    ***. (Optional): a boolean option for visualizing the
+                     the observables exact and approximated
+                     ensemble averages.
+                     Default = True.
+    
+    The algorithm works by constructing 
+    
+    1. an initial reference state, rho_ref, 
+       and an endomorphism, K_ref,
+    2. an incursive basis, constructed from a chosen set of 
+       operators/endomorphisms by taking iterated commutators
+       with the system's Hamiltonian.
+    3. Said incursive basis is then orthonormalized according
+       to:
+           - the previously constructed reference state,
+           - and either the real-valued Hilbert-Schmidt 
+               inner product or the complex-valued standard
+               Hilbert-Schmidt inner product.
+               
+    --- A check is performed to test the basis orthonormaliza-
+        tion, returning an (expected) diagonal Gram matrix,
+              
+    4. The initial coefficient configuration is constructed 
+       and its corresponding exponentiated density state. 
+    5. The H-tensor is constructed from this orthonormal basis
+       using the chosen version of inner product and the 
+       system's Hamiltonian.
+    6. From this, the time-independent markovian set of 
+       coupled differential equations is solved, with the 
+       H-tensor as its kernel. This yields the time-evolution of
+       the coefficients and its corresponding set of density states.
+    7. The observables' time evolution is calculated via ensemble 
+       averages, at each desired time, using the previous density 
+       states.
+    8. Finally, if desired, an exact evolution is calculated using
+       QuTip's master equation solver.
+    
+    ===> Returns a. the Gram matrix, 
+                 b. the initial rho0-state,
+                 c. a dictionary containing the projected 
+                    time-evolution of the coefficients, the                     
+                    density states and the observables' time 
+                    evolution,
+                 d. the exact results, obtained from QuTip's 
+                    master equation solver,
+                 e. the orthonormal basis.
+          
+    """
+    
+    ### building reference states and testing it
+    start_time_proj_ev = time.time()
+    K_ref, rho_ref = build_reference_state(temp = temp_ref, 
+                                              Hamiltonian = Hamiltonian,
+                                              lagrange_op = lagrange_op, 
+                                              lagrange_mult = .5)
+    
+    basis_incursive = vectorized_recursive_basis(depth_and_ops=depth_and_seed_ops,                                             
+                                                    Hamiltonian=Hamiltonian, 
+                                                    rho0=rho_ref)
+    
+    basis_orth = base_orth(ops = basis_incursive, 
+                              rho0 = rho_ref, 
+                              sc_prod = HS_inner_prod_r, 
+                              visualization = False, reinforce_reality=False)
+    
+    print("using a base of size ", len(basis_orth))
+    print("rho_ref: ", rho_ref)
+    
+    ### test 2
+    Gram_matrix = basis_orthonormality_check(basis = basis_orth, 
+                                                  rho0 = rho_ref, 
+                                                  sc_prod = HS_inner_prod_r)
+    
+    ### constructing the initial state and H-tensor
+    phi0, rho0 = build_rho0_from_basis(coeff_list = coeff_list, basis = basis_orth, temp=temp_rho)
+    
+    print("rho_0: ", rho0)
+    Hijtensor = H_ij_matrix(Hamiltonian = Hamiltonian,
+                               basis = basis_orth, 
+                               rho0 = rho_ref, 
+                               sc_prod = HS_inner_prod_r)
+   
+    ### constructing the coefficient arrays and the physical states
+    res_proj_ev_rhot_list, phit = semigroup_phit_and_rhot_sol(phi0 = phi0, rho0 = rho0, 
+                                                     Htensor = Hijtensor, ts = timespan, basis = basis_orth)
+
+    ### test 3
+    herm_rhot_list = semigroup_rhos_test(rho_list = res_proj_ev_rhot_list, 
+                                           visualization_nonherm = visualization_nonherm, ts = timespan)
+    
+    ### Projected solution
+    
+    res_proj_ev_obs_list = [np.array([qutip.expect(obs, rhot) for rhot in res_proj_ev_rhot_list]) for obs in observables]
+    print("Proj ev runtime = ", time.time() - start_time_proj_ev)
+    
+    dict_res_proj_ev = {}
+    dict_res_proj_ev["Coeff_ev"] = phit
+    dict_res_proj_ev["State_ev"] = res_proj_ev_rhot_list
+    dict_res_proj_ev["Avgs"] = res_proj_ev_obs_list
+    
+    ### Exact solution 
+    
+    start_time_exact = time.time()
+    res_exact = mod_mesolve(Hamiltonian, rho0=rho0, tlist=timespan, c_ops=None, e_ops=observables)
+    
+    print("Exact ev runtime = ", time.time() - start_time_exact)
+    
+    if visualize_expt_vals:
+        plot_exact_v_proj_ev_avgs(observables, label_ops, timespan, dict_res_proj_ev["Avgs"], res_exact)
+        label_metric = ["Bures Exact v. Proj ev", "S(exact || proj_ev)", "S(proj_ev || exact)"]
+        plot_exact_v_proj_ev_metrics(timespan, dict_res_proj_ev["State_ev"], res_exact, label_metric)
+    
+    return Gram_matrix, rho0, dict_res_proj_ev, res_exact, basis_orth
 
 # In [-1]:
 
