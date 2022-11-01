@@ -628,19 +628,17 @@ def basis_orthonormality_check(basis, rho0, sc_prod, visualization_Gram_m = Fals
 
 # In [12]:
 
-def build_rho0_from_basis(coeff_list, basis, temp):    
+def build_rho0_from_basis(coeff_list, basis, temp): 
     beta = 1/temp
-    if coeff_list == None:
-        phi0 = [0.] + [np.random.rand() for i in range(len(basis) -1)]
-    else:
-        phi0 = [0.] + coeff_list[1:]    
-    k0 = -sum(f*op  for f, op in zip(phi0, basis))
-    rho0 = (beta * k0).expm()
-    phi0[0]=np.log(rho0.tr())
-    k0 = -sum(f*op  for f, op in zip(phi0, basis))
-    rho0 = (beta * k0).expm()
+    
+    if (coeff_list == None):
+        coeff_list = [0.] + [np.random.rand() for i in range(len(basis) - 1)]
+        
+    rho0 = (-sum( f*op  for f, op in zip(coeff_list, basis))).expm()
+    coeff_list[0]=np.log(rho0.tr())
+    rho0 = (-sum( f*op  for f, op in zip(coeff_list, basis))).expm()
     assert is_density_op(rho0, verbose=True), "rho is not a density matrix."
-    return phi0, rho0
+    return coeff_list, rho0
 
 def semigroup_phit_and_rhot_sol(phi0, rho0, Htensor, ts, basis):
     """
