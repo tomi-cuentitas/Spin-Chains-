@@ -9,9 +9,11 @@ import scipy.linalg as linalg
 
 # In [2]:
 
-### This module checks if the matrix is positive definite ie. if all its eigenvalues are positive
-
 def ev_checks(rho):
+    """
+    This module checks if the matrix is positive 
+    definite i.e. if all its eigenvalues are positive
+    """
     if isinstance(rho, qutip.Qobj):
         rho = rho.full()
     try:
@@ -20,21 +22,30 @@ def ev_checks(rho):
         return False
     return True
 
-
-### This module checks if the user-input quantum object, rho, is a density operator or not.
-### This is done by checking if it is a hermitian, positive definite, trace-one, matrix.
-### Due to numerical instabilities, it may be possible that the trace is not exactly one, even though it is supposed to be,
-### Therefore, a cut-off is implemented to determine if rho is, at least trace-wise, a matrix operator. 
-
-def is_density_op(rho, verbose=False, critial=False):
+def is_density_op(rho, verbose=False, critical=False, tol = 1e-10):
+    """
+    This module checks if the user-input Qobj,
+    rho, is a density operator or not. This is done 
+    by checking if it is a hermitian, positive definite,  
+    and trace-one, matrix. This module takes 
+    *. a user input Qobj,
+    *. an optional boolean parameter for printing out
+        it the Qobj passes these tests.
+    *. an optional boolean 
+    
+    Due to numerical instabilities, it may be possible 
+    for the trace to not be exactly one, even though 
+    it is supposed to be. Therefore, a cut-off is 
+    implemented to check for this condition. 
+    """
     if not qutip.isherm(rho):
         if verbose:
-            print("rho is not hermitician")
+            print("rho is not hermitian")
         assert not critical
         return False
-    if abs(1 - rho.tr()) > 10**-10:
+    if abs(1 - rho.tr()) > tol:
         if verbose:
-            print("Tr rho !=1")
+            print("Tr rho != 1, Tr rho = ", rho.tr())
         assert not critical
         return False
     if not ev_checks(rho):
@@ -45,10 +56,15 @@ def is_density_op(rho, verbose=False, critial=False):
     return True
 
 def non_hermitianess_measure(rho):
+    """
+    Returns a measure of the non-hermitian character
+    of a user-input matrix, rho, by calculating the Frobenius 
+    norm of the difference of rho and its adjoint.
+    """
     return linalg.norm(rho - rho.dag())
 
-def null_matrix_check(rho):
-    return (linalg.norm(rho) < 10**-10)
+def null_matrix_check(rho, tol = 1e-10):
+    return (linalg.norm(rho) < tol)
 
 def commutator(A, B):
     result = 0
@@ -68,7 +84,14 @@ def anticommutator(A, B):
     result += A*B+B*A
     return result
 
-def Hamiltonian_comm_check(Hamiltonian, basis, labels = None, remove_null = True):
+def Hamiltonian_comm_basis_reduce(Hamiltonian, basis, labels = None, remove_null = True): # previously, Hamiltonian_comm_check
+    """
+    This function performs a test, cheking if the basis
+    elements commute with the system's Hamiltonian. 
+    If the remove null option is chosen, those operators
+    which commute with the Hamiltonian are erased. Then,
+    it returns the new basis.
+    """
     if type(basis) is dict:
         for i in basis.copy(): 
             print("[H, ", i, "] = 0?: ", null_matrix_check(commutator(Hamiltonian, basis[i])))
@@ -77,28 +100,29 @@ def Hamiltonian_comm_check(Hamiltonian, basis, labels = None, remove_null = True
                 print(i, "basis element deleted")
     if type(basis) is list:
         for i in range(len(basis)):
-            print("[H, ", labels[i], "] = 0?: ", null_matrix_check(commutator(Hamiltonian, basis[i])))
+            print("[H, ", i, "] = 0?: ", null_matrix_check(commutator(Hamiltonian, basis[i])))
             if remove_null and null_matrix_check(commutator(Hamiltonian, basis[key])):
                 basis.pop()
     return basis
 
 def basis_hermitian_check(basis):
     if type(basis) is dict:
-        basis = [basis[key] for key in basis]
-    a = False
-    for i in range(len(basis)):
-        a = qutip.isherm(basis[i])
-    return a
+        basis = basis.values()
+    return [null_matrix_check(op - op.dag()) for op in basis]
 
 # In [3]: 
 
-### Given an N-site spin chain, there are then 3N different, non-trivial, operators acting on the full Hilbert space.
-### N sigmax operators, N sigmay operators, N sigmaz operators, and a global identity operator. 
-### All these 3N+1-operators are constructed with a tensor product so that they all act on the full Hilbert space. 
-### All, but the global identity operator, act non-trivially only on one Hilbert subspace. 
-
 def one_body_spin_ops(size):
-    
+    """
+    Given an N-site spin chain, there are then 3N different, 
+    non-trivial, operators acting on the full Hilbert space.
+    N sigma-x operators, N sigma-y operators, 
+    N sigma-z operators, and a global identity operator. 
+    All these 3N+1-operators are constructed with a tensor
+    product so that they all act on the full Hilbert space. 
+    All but the global identity operator, act 
+    non-trivially only on one Hilbert subspace. 
+    """
     ### Basic, one-site spin operators are constructed.
     
     loc_sx_list = []; loc_sy_list = []; loc_sz_list = []; loc_globalid_list = []
@@ -108,11 +132,10 @@ def one_body_spin_ops(size):
     sz = .5*qutip.sigmaz()
     
     ### The global identity operator is constructed 
-    
     loc_global_id = [qutip.tensor([qutip.qeye(2) for k in range(size)])]
     
-    ### Lists of one-body operators are constructed, so that they all act on the full Hilbert space. This is done
-    ### via taking tensor products on lists of operators. 
+    ### Lists of one-body operators are constructed, so that they all act on the full Hilbert space. 
+    ### This is done via taking tensor products on lists of operators. 
     
     for n in range(size):
         operator_list = []
@@ -129,24 +152,31 @@ def one_body_spin_ops(size):
         loc_sz_list.append(qutip.tensor(operator_list))        
     return loc_global_id, loc_sx_list, loc_sy_list, loc_sz_list
 
-### This module is relevant only if a non-unitary Lindblad evolution is chosen, it construcf a list of 
-### collapse operators, with its corresponding collapse factors. In particular, sz collapse operators are chosen. 
-
 def spin_dephasing(op_list, size, gamma):
-        loc_c_op_list = []; 
-        loc_sz_list = op_list[3]
-        collapse_weights = abs(gamma) * np.ones(size)
-        loc_c_op_list = [np.sqrt(collapse_weights[n]) * loc_sz_list[n] for n in range(size)]
-        return loc_c_op_list
+    """ 
+    If a non-unitary Lindblad evolution is desired,
+    this modeule constructs a list of collapse
+    operators and collapse factors.
+    By default, sigma-z collapse operators are chosen
+    """
+    loc_c_op_list = []; 
+    loc_sz_list = op_list[3]
+    collapse_weights = abs(gamma) * np.ones(size)
+    loc_c_op_list = [np.sqrt(collapse_weights[n]) * loc_sz_list[n] for n in range(size)]
+    return loc_c_op_list
 
 # In [4]: 
 
-### This module constructs all pair-wise combinations (ie. correlators) of non-trivial one-body operators (ie. sx, sy, sz operators only). 
-### There are N(N+1)/2 different correlators in an N-site spin chain.
-
-def all_two_body_spin_ops(op_list, size):
+def all_upto_two_body_spin_ops(op_list, size):
+    """
+    This module constructs all pair-wise combinations
+    (ie. correlators) of trivial and non-trivial 
+    one-body operators (ie. sx, sy, sz operators only)
+    Note that there are N(N+1)/2 different correlators  
+    in an N-site spin chain.
+    """
     loc_global_id_list, sx_list, sy_list, sz_list = op_list
-      
+
     pauli_four_vec = [loc_global_id_list, sx_list, sy_list, sz_list];
         
     sxsa_list = []; sysa_list = []; szsa_list = []; two_body_s = [];
@@ -162,16 +192,17 @@ def all_two_body_spin_ops(op_list, size):
     szsa_list = [sz_list[n] * pauli_four_vec[a][b] for n in range(size)
                                                    for a in range(len(pauli_four_vec))
                                                    for b in range(len(pauli_four_vec[a]))]
-    
+    # Notice that since you have added the identity, this contains also 0-body (the global id)
+    # and 1-body operators...
     two_body_s = [sxsa_list, sysa_list, szsa_list]
     return two_body_s
 
-# In [5]: 
-
-### This module is redundant in its current form. It basically either constructs all two-body correlators 
-### or some subset of these. 
-
 def two_body_spin_ops(op_list, size, build_all = False):
+    """
+    This module is redundant in its current form. 
+    It basically either constructs all two-body 
+    correlators or some subset of these. 
+    """
     loc_list = []
     if build_all:
         loc_list = all_two_body_spin_ops(op_list, N)
@@ -190,11 +221,14 @@ def two_body_spin_ops(op_list, size, build_all = False):
         loc_list.append(loc_szsz)
     return loc_list
 
-# In [6]: 
-
-### This module constructs the Heisenberg Hamiltonian for different types of systems, according to some user-inputed parameters. 
+# In [5]: 
 
 def Heisenberg_Hamiltonian(op_list, chain_type, size, Hamiltonian_paras, closed_bcs = True, visualization = False):
+    """
+    This module constructs the Heisenberg Hamiltonian for
+    different types of systems, according to some 
+    user-inputed parameters. 
+    """
     spin_chain_type = ["XX", "XYZ", "XXZ", "XXX", "Anderson"]
     loc_globalid_list, sx_list, sy_list, sz_list = op_list       
           
@@ -229,8 +263,8 @@ def Heisenberg_Hamiltonian(op_list, chain_type, size, Hamiltonian_paras, closed_
                 -.5 * Jz * (sz_list[N-1] * sz_list[0])
         
         elif (chain_type == "XYZ"):
-            Jy = Hamiltonian_paras[1] * 2 * np.pi #* np.ones(N)
-            Jz = Hamiltonian_paras[2] * 2 * np.pi #* np.ones(N)
+            Jy = Hamiltonian_paras[1] * 2 * np.pi 
+            Jz = Hamiltonian_paras[2] * 2 * np.pi 
             H += sum(-.5 * Jx * (sx_list[n] * sx_list[n+1]) 
                      -.5 * Jy * (sy_list[n] * sy_list[n+1]) 
                      -.5 * Jz * (sz_list[n] * sz_list[n+1]) for n in range(N-1))
@@ -246,11 +280,8 @@ def Heisenberg_Hamiltonian(op_list, chain_type, size, Hamiltonian_paras, closed_
               
     if visualization:
         qutip.hinton(H)
-        
-    if (qutip.isherm(H)): 
-        return H
-    else:
-        sys.exit("Non-Hermitian Hamiltonian obtained")
+    assert non_hermitianess_measure(H) < 1e-5, "Non-hermitian Hamiltonian obtained" 
+    return H
 
 def Heisenberg_Hamiltonian_tests(spin_ops_list, N):
     start_time = time.time()
@@ -280,69 +311,83 @@ def Heisenberg_Hamiltonian_tests(spin_ops_list, N):
     print("--- Test concluded in: %s seconds ---" % (time.time() - start_time))
     return all_hamiltonians_are_hermitian
 
-#In [7]:
+#In [6]:
 
 def prod_basis(b1, b2):
     return [qutip.tensor(b,s) for b in b1 for s in b2]
 
-def HS_inner_prod_t(op1, op2, rho0=None): ### previous name: HS_inner_prod(A, B, rho0 = None):
-    if (op1.dims[0][0]==op2.dims[0][0]):    ### Formally, this is the correct Hilbert-Schmidt inner product
-        pass                                ### It is a complex valued inner product on the space of all endomorphisms 
-    else:                                   ### acting on the N-partite Hilbert space 
+def HS_inner_prod_t(op1, op2, rho0 = None): ### previous name: HS_inner_prod(A, B, rho0 = None):
+    """
+    Formally, this is the correct Hilbert-Schmidt 
+    inner product. It is a complex valued inner 
+    product on the space of all endomorphisms 
+    acting on the N-partite Hilbert space 
+    """
+    if (op1.dims[0][0]==op2.dims[0][0]):   
+        pass                                
+    else:                                   
         raise Exception("Incompatible Qobj dimensions")
     
     if rho0 is None:
         rho0 = qutip.qeye(op1.dims[0])
         rho0 = rho0/rho0.tr()        
     else:
-        assert is_density_op(rho0, verbose=True), "rho0 is not a density op"
-        
-    result = 0
-    result += (rho0 * (op1.dag() * op2)).tr()    
-    return result
+        if (is_density_op(rho0)):
+            pass
+        else:
+            sys.exit("rho0 is not a density op")
+    return (rho0 * (op1.dag() * op2)).tr()
 
-def HS_inner_prod_r(op1, op2, rho0): ### This inner product is real valued, provided both op1 and op2 are hermitian
-    if (op1.dims[0][0]==op2.dims[0][0]):    ### and is easier to compute when dealing with spin chains, as the operator themselves 
-        pass                                ### can be written as tensor products of local operators. A global-trace is then a product 
-    else:                                   ### of traces over local Hilbert spaces
-        raise Exception("Incompatible Qobj dimensions")
-    
+def HS_inner_prod_r(op1, op2, rho0 = None): ### This inner product is real valued, provided both op1 and op2 are hermitian
+    """
+    Real-valued Hilbert-Schmidt inner product.
+    Easier to compute for spin chains, as the 
+    operator themselves can be written as 
+    tensor products of local 1-body operatos.
+    A global trace is then a product of traces
+    over local Hilbert spaces. 
+    """
+    assert (op1.dims[0][0]==op2.dims[0][0]), "Incompatible Qobj dimensions"
     if rho0 is None:
         rho0 = qutip.qeye(op1.dims[0])
         rho0 = rho0/rho0.tr()
     else:
-        assert is_density_op(rho0, verbose=True), "rho0 is not a density op"
-        
-    result = 0
-    result += .5 * (rho0 * anticommutator(op1.dag(), op2)).tr()    
-    return result
+        assert is_density_op(rho0), "rho0 is not a density op" 
+    return .5 * (rho0 * anticommutator(op1.dag(), op2)).tr()
 
 def HS_inner_norm(op, rho0, sc_prod): ### previous name: mod_HS_inner_norm
     return sc_prod(op, op, rho0)
 
 def HS_normalize_op(op, rho0, sc_prod):
-    op = op/sc_prod(op, op, rho0)
-    return op
+    return op/sc_prod(op, op, rho0)
 
 def HS_distance(rho, sigma, rho0, sc_prod):
-    if rho.dims[0][0]==sigma.dims[0][0]:
-        pass
-    else:
-        raise Exception("Incompatible Qobj dimensions")
-    
-    return sc_prod(rho, sigma, rho0)
+    assert rho.dims[0][0]==sigma.dims[0][0], "Incompatible Qobj dimensions"
+    return sc_prod(rho-sigma, rho-sigma, rho0)
 
 def base_orth(ops, rho0, sc_prod, visualization = False, reinforce_reality=False):
-    
+    """
+    A Gram-Schmidt procedure is implemented for 
+    orthonormalizing a given basis. It takes as input:
+    *. a list or dictionary of N-body operators,
+    *. a reference state rho0,
+    *. a Hilbert-Schmidt-type inner product, be it
+         its real valued version or the default
+         complex-valued one,
+    *. an optional boolean parameter for visualizing 
+        the i-th operator's inner products with 
+        all operators in the basis,
+    *. an optional boolean parameter for taking only
+        real results, dumping complex-valued numbers. 
+    """
     if isinstance(ops, dict):
         ops = [ops[key] for key in ops]
     if isinstance(ops[0], list):
         ops = [op for op1l in ops for op in op1l]
-    dim = ops[0].dims[0][0]
     basis = []
     for i, op in enumerate(ops): 
         op_norm = np.sqrt(sc_prod(op, op, rho0))
-        op = op / op_norm
+        op = op/op_norm
         alpha = np.array([sc_prod(op2, op, rho0) for op2 in basis])
         if reinforce_reality:
             alpha = alpha.real
@@ -355,15 +400,382 @@ def base_orth(ops, rho0, sc_prod, visualization = False, reinforce_reality=False
                 print("*****************norm", op_norm)
             op_mod = op_mod/(op_norm)
             basis.append(op_mod)
-        else:
-            if visualization:
-                print("*****************skip", op, " of norm", op_norm)
+        #else:
+        #    if visualization:
+        #        print("*****************skip", op, " of norm", op_norm)
     return basis
 
 # In [7]: 
 
-natural = tuple('123456789')
+def logM(rho, svd = True):
+    """
+    Evaluates the logarithm of a positive matrix rho.
+    """
+    assert ev_checks(rho), "Non positive-defined input matrix"
+    if isinstance(rho, qutip.Qobj):
+        qutip_form = True
+        dims = rho.dims
+    else:
+        qutip_form = False        
 
+    if svd:            
+        if qutip_form:
+            rho = rho.full()
+        U, Sigma, Vdag = linalg.svd(rho, full_matrices = False)
+        matrix_log = U @ np.diag(np.log(Sigma)) @ U.conj().transpose() 
+    else: 
+        if qutip_form:
+            eigvals, eigvecs = rho.eigenstates()
+            matrix_log = sum([np.log(vl)*vc*vc.dag() for vl, vc in zip(eigvals, eigvecs)]) 
+        else:
+            rho = rho.full()
+            eigvals, eigvecs = linalg.eigh(rho)
+            return evecs @ np.array([np.log(ev)*np.array(f) for ev, f in zip(evals, evecs.transpose().conj())])
+    
+    if qutip_form:
+        matrix_log = qutip.Qobj(matrix_log, dims)
+    return matrix_log
+
+
+def sqrtM(rho, svd = True):
+    """
+    Evaluates the square root of a positive matrix rho.
+    """
+    assert ev_checks(rho), "Non positive-defined input matrix"
+    if isinstance(rho, qutip.Qobj):
+        qutip_form = True
+        dims = rho.dims
+    else:
+        qutip_form = False
+
+    if svd:
+        if qutip_form:
+            rho = rho.full()
+        U, Sigma, Vdag = linalg.svd(rho, full_matrices = False)
+        matrix_log = U @ np.diag((Sigma)**.5) @ U.conj().transpose() 
+    else: 
+        if qutip_form:
+            eigvals, eigvecs = rho.eigenstates()
+            matrix_log = sum([(vl**.5)*vc*vc.dag() for vl, vc in zip(eigvals, eigvecs)]) 
+        else:
+            rho = rho.full()
+            eigvals, eigvecs = linalg.eigh(rho)
+            return evecs @ np.array([(ev**.5)*np.array(f) for ev, f in zip(evals, evecs.transpose().conj())])
+    
+    if qutip_form:
+        matrix_log = qutip.Qobj(matrix_log, dims)
+    return matrix_log
+
+# In [8]:
+
+def bures(rho, sigma, svd = True):
+    """
+    Evaluates the Bures metric between two density states. 
+    """
+    assert is_density_op(rho), "rho is not a density operator"
+    assert is_density_op(sigma), "sigma is not a density operator9"
+    
+    sqrt_sigma = sqrtM(sigma.full(), svd=svd)
+    fidelity = sqrtM((sqrt_sigma @ rho.full()  @sqrt_sigma),svd=True).trace().real
+
+    assert abs(fidelity.imag)<1.e-10, f"complex fidelity? fidelity={fidelity}"
+    fidelity = fidelity.real
+    assert 0 <= fidelity, f"negative fidelity? fidelity={fidelity}"
+    if fidelity>1.:
+        assert (fidelity-1)<1.e-8, f"error in fidelity too large fidelity={fidelity}"
+        return 0.
+    return  np.arccos(fidelity)/np.pi
+
+def proj_op(K, basis, rho0, sc_prod):
+    return sum([sc_prod(b, K,rho0) * b for b in basis])
+
+def rel_entropy(rho, sigma, svd = True):
+    if svd:
+        val = (rho*(logM(rho, True) - logM(sigma, True))).tr()
+    else:
+        assert ((ev_checks(rho) and ev_checks(sigma))), "Either rho or sigma non positive"
+        val = (rho*(logM(rho, False)-logM(sigma, False))).tr()
+        if (abs(val.imag - 0)>1.e-10):
+            val = None
+            raise Exception("Either rho or sigma not positive")
+    return val.real
+
+def bures_vectorized(rhot_list, sigmat_list):
+    assert len(rhot_list) == len(sigmat_list), "Lists not of the same length"
+    bures_list_vcz = [bures(rhot_list[t], sigmat_list[t]) for t in range(len(rhot_list))]
+    return bures_list_vcz
+
+def relative_entropies_vectorized(rhot_list, sigmat_list):
+    assert len(rhot_list) == len(sigmat_list), "Lists not of the same length"
+    rel_rho_v_sigma = [rel_entropy(rhot_list[t], sigmat_list[t]) for t in range(len(rhot_list))]
+    rel_sigma_v_rho = [rel_entropy(sigmat_list[t], rhot_list[t]) for t in range(len(rhot_list))]
+    return rel_rho_v_sigma, rel_sigma_v_rho
+
+# In [9]:
+        
+def classical_ops(Hamiltonian, N, op_list, centered_x_op = False):
+    
+    identity_op = op_list[0][0]; sz_list = op_list[3]    
+    labels = ["identity_op", "x_op", "p_op", "n_oc_op", "comm_xp", "corr_xp", "p_dot", "n_oc_disp"]
+    
+    cl_ops = {"identity_op": identity_op}
+    if centered_x_op:
+        cl_ops["x_op"] = sum((.5 + sz_list[k])*(k+1) for k in range(len(sz_list)))
+    else:
+        cl_ops["x_op"] = sum((k-N/2)*(sz_list[k] + .5 * identity_op) for k in range(len(sz_list)-1)) 
+        
+    cl_ops["p_op"] = 1j * commutator(cl_ops["x_op"], Hamiltonian)
+    cl_ops["n_oc_op"] = sum([sz_list[k] + .5 * identity_op for k in range(len(sz_list)-1)])
+    cl_ops["comm_xp"] = .5 * anticommutator(cl_ops["x_op"], cl_ops["p_op"])
+    cl_ops["corr_xp"] = -1j * commutator(cl_ops["x_op"], cl_ops["p_op"])
+    cl_ops["p_dot"] = 1j * commutator(Hamiltonian, cl_ops["p_op"])
+    cl_ops["n_oc_disp"] = (cl_ops["n_oc_op"]-1.)**2
+    
+    for i in range(len(labels)):
+        if qutip.isherm(cl_ops[labels[i]]):
+            pass
+        else:
+            print(labels[i], "not hermitian")
+    return cl_ops, labels
+    
+# In [10]:
+
+def build_reference_state(temp, Hamiltonian, lagrange_op, lagrange_mult):
+    """
+    This module constructs a gaussian reference 
+    state, to then be used by the Hilbert-Schmidt 
+    inner-products. It takes as parameters
+    
+    ***. a temperature, 
+    ***. a Hamiltonian,
+    ***. a custom hermitian operator with
+    ***. an associated real-valued weight.
+    
+    It returns a gaussian state
+    """
+    ### building the reference state
+    k_B = 1; beta = 1/(k_B * temp); 
+    K = -beta * (Hamiltonian - lagrange_mult * (lagrange_op - 1)**2)
+    K = K - max(K.eigenenergies(K)) 
+    rho_ref = K.expm()
+    rho_ref = rho_ref/rho_ref.tr()
+    if not is_density_op(rho_ref):
+        if (non_hermitianess_measure(rho_ref) <= 1e-10):
+            rho_ref = .5 * (rho_ref + rho_ref.dag())
+        assert ev_checks(rho_ref), "Singular density op"
+    return K, rho_ref
+
+def recursive_basis(depth, seed_op, Hamiltonian, rho0): 
+    """
+    Build a basis of the form 
+    [c_0(seed_op), c_1(seed_op), ... c_depth(seed_op)]
+    with c_0(op)=op-<op>
+    
+    c_1(op) = [Hamiltonian, op]-<[Hamiltonian, op]> id_M
+    
+    c_{n+1}(op) = c_1(c_{n}(op))
+    
+    As a result, this is a zero-average basis of hermitian operators
+    that expands the order `depth` Dyson's series for
+    seed_op(t).
+    """
+    basis = [seed_op]; 
+    if isinstance(depth, int) and depth > 0: 
+        for i in range(1, depth):
+            loc_op = qutip.Qobj(-1j * commutator(Hamiltonian, basis[i-1]))
+            if (linalg.norm(loc_op) < 1e-10):
+                loc_op = None
+                break
+            loc_op = (loc_op * rho0).tr() - loc_op
+            basis.append(loc_op)
+    elif (depth == 0):
+        basis += [] 
+    return basis
+
+def vectorized_recursive_basis(depth_and_ops, Hamiltonian, rho0):        
+    basis_rec = []
+    for depth, op in depth_and_ops: 
+        basis_rec += recursive_basis(depth, op, Hamiltonian, rho0)
+    return basis_rec
+    
+# In [11]:
+
+def H_ij_matrix(Hamiltonian, basis, rho0, sc_prod):
+    coeffs_matrix = np.array([[sc_prod(op1, -1j * commutator(Hamiltonian, op2), rho0) for op2 in basis] for op1 in basis])
+    return coeffs_matrix
+
+def basis_orthonormality_check(basis, rho0, sc_prod, visualization_Gram_m = False): 
+    dim = len(basis)
+    hermitian_basis = [non_hermitianess_measure(op1) <= 1e-10 for op1 in basis]
+    assert np.all(hermitian_basis), ("Not all the operators are "
+                                     f"hermitian:\n {hermitian_basis}")
+    
+    gram_matrix = [[sc_prod(op2, op1, rho0) for op2 in basis] for op1 in basis]
+    normalized = [abs(gram_matrix[i][i]-1.) <= 1e-10  for i in range(dim)]
+    assert all(normalized), ("Some operators in the basis are not normalized:\n"
+                             f"{normalized}")
+
+    assert (linalg.norm((np.identity(dim) - gram_matrix) <= 1e-10)), "Not all operators are pair-wise orthogonal"
+    print("The basis is orthonormal and hermitian")
+
+    null_averages = [np.real((rho0 * op1).tr()) <= 1e-6 for op1 in basis]
+    assert all(null_averages[1:]), ("Some operators do not have a null average:\n" 
+                                    f"{null_averages}")
+    
+    gram_matrix = qutip.Qobj(gram_matrix)
+    if visualization_Gram_m:
+        gram_eigen = gram_matrix.eigenenergies()
+        plt.scatter([i+1 for i in range(len(gram_eigen))], gram_eigen, 
+        label = "Gram matrix eigenvalues")
+    return gram_matrix
+
+# In [12]:
+
+def build_rho0_from_basis(basis, temp):
+    beta = 1/temp; phi0 = [0] + [np.random.rand() for b in range(1,len(basis))]
+    k0 = -sum( f*op for f,op in zip(phi0, basis))
+    rho0 = (beta * k0).expm()
+    phi0[0] = np.log(rho0.tr())
+    k0 = -sum( f*op for f,op in zip(phi0, basis))
+    rho0 = (beta * k0).expm()
+    #assert is_density_op(rho0, verbose=True), "rho is not a density matrix."
+    return phi0, rho0
+
+def semigroup_phit_and_rhot_sol(phi0, rho0, Htensor, ts, basis):
+    """
+    This module constructs the solution to the differential equation:
+    
+    dphi(t)/dt = Htensor * phi(t),
+    
+    where Htensor is a real-valued N x N matrix. From this phit-list,
+    the rhot-list is constructed.
+    
+    This module takes as parameters:
+    
+    *. an initial configuration of parameters for the chosen basis, phi0,
+    *. an initial density matrix,
+    *. an H-tensor, constructed from the basis,
+    *. a list of times,
+    *. and the basis of operators.
+    """
+    
+    Phi_vector_solution = []; rho_at_timet = []
+    phi0=np.array(phi0)
+    Phi_vector_solution.append(phi0); rho_at_timet.append(rho0)
+    
+    new_phi = Phi_vector_solution[0]
+    for i in range(1, len(ts)-1):
+        evol_op = linalg.expm(ts[i]*Htensor)
+        new_phi = evol_op.dot(phi0)
+        Phi_vector_solution.append(new_phi)
+        K = -sum( f*op for f,op in zip(new_phi, basis))
+        K = K - max(K.eigenenergies()) 
+        if not (np.linalg.norm( (K-K.dag()).full()) < 1e-5):
+            print("Non hermitician part norm:", np.linalg.norm( (K-K.dag()).full())  )
+            assert K.isherm, "K is not Hermitician "
+        rhot= K.expm()
+        #if (rhot.tr() < 1e-6):
+        #   continue 
+        rho_at_timet.append(rhot/rhot.tr())
+    return rho_at_timet, Phi_vector_solution    
+
+def semigroup_rhos_test(rho_list, visualization_nonherm, ts):
+    non_densitiness = [ (non_hermitianess_measure(rho_list[t])/linalg.norm(rho_list[t])) for t in range(len(rho_list))]
+    rho_list = [.5 * (rho_list[t] + rho_list[t].dag()) for t in range(len(rho_list))]
+            
+    if visualization_nonherm:
+        x2 = np.arange(len(non_densitiness))
+        y2 = non_densitiness
+        fig2, ax2 = plt.subplots()
+        ax2.plot(x2,y2)
+        ax2.legend(loc=0)
+        ax2.set_title("Non-hermitian measure for semigroup states")
+    return rho_list
+
+# In [13]:
+
+def visz_H_tensor_evs(Htensor):
+    if (type(Htensor) == qutip.Qobj):
+        Htensor_local = np.array(Htensor)
+    x = sorted(np.array(qutip.Qobj(Htensor_local).eigenenergies().real))
+    y = sorted(np.array(qutip.Qobj(Htensor_local).eigenenergies().imag))
+    z = np.arange(len(x))
+    fig1, ax1 = plt.subplots()
+    ax1.plot(z,x, label = "Real Part evs")
+    ax1.plot(z,y, label = "Imag part evs")
+    ax1.legend(loc=0)
+    ax1.set_title("H-tensor's eigenvalues' real and imag part")
+
+def plot_exact_v_proj_ev_avgs(observables, label, ts, res_proj_ev, res_exact):
+    Tot = len(observables); Cols = 3
+    Rows = Tot // Cols 
+    if Tot % Cols != 0:
+        Rows += 1
+    Position = range(1,Tot + 1)
+    z = ts[:-1]
+    fig = plt.figure(figsize=(18, 14))
+    for k in range(Tot):
+        ax = fig.add_subplot(Rows,Cols,Position[k])
+        ax.plot(z, res_exact.expect[k][:-1], label = "Exact")
+        ax.plot(z, res_proj_ev[k], label = "Manifold proj")        
+        ax.legend(loc=0)
+        ax.set_title("Expected values: Proj-ev. v. Exact for " + label[k])
+    plt.show()
+
+def exact_v_proj_ev_matrix_metrics(ts, res_proj_ev_rhot_list, res_exact):
+    #exact_vn_entropy = [qutip.entropy_vn(rho) for rho in res_exact.states]
+    #proj_ev_vn_entropy = [qutip.entropy_vn(rho) for rho in res_proj_ev_rhot_list]
+    
+    ts_prime = ts[:-1]
+    bures_exact_v_proj_ev_list = bures_vectorized(rhot_list = res_proj_ev_rhot_list,
+                                                  sigmat_list = res_exact.states[:-1])
+    
+    relent_ex_v_proj_ev_list, relent_proj_ev_v_ex = relative_entropies_vectorized(rhot_list = res_proj_ev_rhot_list,
+                                                                                  sigmat_list = res_exact.states[:-1])
+    
+    return bures_exact_v_proj_ev_list, relent_ex_v_proj_ev_list, relent_proj_ev_v_ex
+
+def plot_exact_v_proj_ev_metrics(ts, res_proj_ev_rhot_list, res_exact, label_metric):
+    metric_local = exact_v_proj_ev_matrix_metrics(ts, res_proj_ev_rhot_list, res_exact)
+    Tot = len(label_metric); Cols = 3
+    Rows = Tot // Cols 
+    if Tot % Cols != 0:
+        Rows += 1
+    Position = range(1,Tot + 1)
+    z = ts[:-1]
+    fig = plt.figure(figsize=(10, 5))
+    for k in range(Tot):
+        ax = fig.add_subplot(Rows,Cols,Position[k])
+        ax.plot(z, metric_local[k], label = "Exact v. Proj ev: " + label_metric[k])
+        ax.legend(loc=0)
+        ax.set_title("Matrix metrics")
+    plt.show()    
+    
+def mesolve(H, rho0, tlist, c_ops=None, e_ops=None,**kwargs):
+    """
+    Wrapper for the qutip.mesolve function that allows to get
+    both the expectation values and the operators.
+    """
+    from typing import Callable
+    if e_ops is None or isinstance(e_ops, Callable):
+        return qutip.mesolve(H, rho0, tlist, c_ops, e_ops=e_ops, **kwargs)
+    
+    result = qutip.solver.Result()
+    result.expect = [[] for e in e_ops]
+    result.times = []
+
+    def callback(t, rho):
+        result.times.append(t)
+        result.states.append(rho)
+        for i, e in enumerate(e_ops):
+            result.expect[i].append(qutip.expect(rho, e))
+
+    qutip.mesolve(H, rho0, tlist, c_ops, e_ops=callback, **kwargs)
+    return result
+
+# In [-1]:
+
+natural = tuple('123456789')
 def n_body_basis(op_list, gr, N):
     basis = []
     globalid_list, sx_list, sy_list, sz_list = op_list       
@@ -392,7 +804,7 @@ def max_ent_basis(op_list, op_basis_order_is_two, N, rho0, sc_prod):
     print(a + "-body operator chosen")
     return basis
 
-# In [8]:
+# In [-2]:
 
 def n_body_max_ent_state(op_list, gr, N, coeffs = list, build_all = True, visualization = False):
     K = 0; rho_loc = 0;
@@ -426,13 +838,17 @@ def n_body_max_ent_state(op_list, gr, N, coeffs = list, build_all = True, visual
     rho_loc = K.expm()
     rho_loc = rho_loc/rho_loc.tr()
     
-    assert is_density_op(rho_loc, verbose=True), "rho_loc is not a density operator"
+    if is_density_op(rho_loc):
+        pass
+    else:  
+        rho_loc = None 
+        raise Exception("The result is not a density operator")
         
     if visualization: 
         qutip.hinton(rho_loc)
     return rho_loc 
 
-# In [9]: 
+# In [-3]: 
 
 def initial_state(op_list, N = 1, gaussian = True, gr = 1, x = .5, coeffs = list, psi0 = qutip.Qobj,
                   build_all = False, visualization=False):
@@ -448,13 +864,17 @@ def initial_state(op_list, N = 1, gaussian = True, gr = 1, x = .5, coeffs = list
         else:
             print("Psi0 must be a ket")
     
-    assert is_density_op(rho0, verbose=visualization), "Output is not a density operador"
+    if is_density_op(rho0):
+        pass
+    else: 
+        rho0 = None
+        print("Output is not a density operador")
     
     if visualization:
             qutip.hinton(rho0)
     return rho0  
 
-# In [10]: 
+# In [-4]: 
 
 def choose_initial_state_type(op_list, N, build_all, x, gaussian, gr):
     
@@ -485,110 +905,8 @@ def choose_initial_state_type(op_list, N, build_all, x, gaussian, gr):
       
     if gaussian:
          print(statement + " initial state chosen")
-            
     return rho0
 
-# In [12]: 
-
-def logM(rho, svd = True):
-    """
-    Evaluates the logarithm of a positive matrix rho
-    """
-    assert ev_checks(rho), "Non positive-defined input matrix"
-    
-    if isinstance(rho, qutip.Qobj):
-        qutip_form = True
-        dims = rho.dims
-    else:
-        qutip_form = False        
-
-    if svd:            
-        if qutip_form:
-            rho = rho.full()
-        U, Sigma, Vdag = linalg.svd(rho, full_matrices = False)
-        matrix_log = U @ np.diag(np.log(Sigma)) @ U.conj().transpose() 
-        #matrix_log = qutip.Qobj(U) * qutip.Qobj(np.diag(np.log(Sigma))) * qutip.Qobj(np.array(Vdag))
-    else: 
-        if qutip_form:
-            eigvals, eigvecs = rho.eigenstates()
-            matrix_log = sum([np.log(vl)*vc*vc.dag() for vl, vc in zip(eigvals, eigvecs)]) 
-        else:
-            rho = rho.full()
-            eigvals, eigvecs = linalg.eigh(rho)
-            return evecs @ np.array([np.log(ev)*np.array(f) for ev, f in zip(evals, evecs.transpose().conj())])
-    
-    if qutip_form:
-        matrix_log = qutip.Qobj(matrix_log, dims)
-    return matrix_log
-
-
-def sqrtM(rho, svd = True):
-    """
-    Evaluates the square root of a positive matrix rho
-    """
-    assert ev_checks(rho), "Non positive-defined input matrix"
-    
-    if isinstance(rho, qutip.Qobj):
-        qutip_form = True
-        dims = rho.dims
-    else:
-        qutip_form = False
-
-    if svd:
-        if qutip_form:
-            rho = rho.full()
-        U, Sigma, Vdag = linalg.svd(rho, full_matrices = False)
-        matrix_log = U @ np.diag((Sigma)**.5) @ U.conj().transpose() 
-        #matrix_log = qutip.Qobj(U) * qutip.Qobj(np.diag(np.log(Sigma))) * qutip.Qobj(np.array(Vdag))
-    else: 
-        if qutip_form:
-            eigvals, eigvecs = rho.eigenstates()
-            matrix_log = sum([(vl**.5)*vc*vc.dag() for vl, vc in zip(eigvals, eigvecs)]) 
-        else:
-            rho = rho.full()
-            eigvals, eigvecs = linalg.eigh(rho)
-            return evecs @ np.array([(ev**.5)*np.array(f) for ev, f in zip(evals, evecs.transpose().conj())])
-    
-    if qutip_form:
-        matrix_log = qutip.Qobj(matrix_log, dims)
-    return matrix_log
-
-
-
-def bures(rho, sigma, svd = True):
-    """
-    Evaluates the Bures metric between two states. 
-    """
-    assert is_density_op(rho), "rho is not a density operator"
-    assert is_density_op(sigma), "sigma is not a density operator"
-    
-    sqrt_sigma = sqrtM(sigma.full(), svd=svd)
-    fidelity = sqrtM((sqrt_sigma @ rho.full()  @sqrt_sigma),svd=True).trace().real
-
-    assert abs(fidelity.imag)<1.e-10, f"complex fidelity? fidelity={fidelity}"
-    fidelity = fidelity.real
-    assert 0<=fidelity, f"negative fidelity? fidelity={fidelity}"
-    if fidelity>1.:
-        assert (fidelity-1)<1.e-8, f"error in fidelity too large fidelity={fidelity}"
-        return 0.
-    
-    return  np.arccos(fidelity)/np.pi
-    
-
-# In [13]: 
-
-def proj_op(K, basis, rho0, sc_prod):
-    return sum([sc_prod(b, K,rho0) * b for b in basis])
-
-def rel_entropy(rho, sigma, svd = True):
-    assert  ev_checks(rho), "rho is not positive"
-    assert  ev_checks(sigma), "sigma is not positive"
-    val = (rho*(logM(rho, svd) - logM(sigma, svd))).tr()
-    assert abs(val.imag)/(abs(val.real)+1e-8) < 1.e-3, f"imaginary part larger than the tolerance...val={val}"
-    return val.real
-
-# In [14]:
-        
 def maxent_rho(rho, basis):   
     def test(x, rho, basis):
         k = sum([-u*b for u,b in zip(x, basis)])        
@@ -624,60 +942,10 @@ def error_proj_state(rho, rho0, basis, distance=bures):
         return distance(rho, sigma)
     except:
         print("fail error proj state")
-        return None
-    
-# In [15]:
-
-def legacy_classical_ops(n, Hamiltonian):
-    id_loc = qutip.qeye(2)
-    sz_loc = .5*qutip.sigmaz()
-    sx_loc = .5*qutip.sigmax()
-    sy_loc = .5*qutip.sigmay()
-
-    n_oc =  sum(qutip.tensor([id_loc for i in range(k)]+ 
-                     [(sz_loc + .5*id_loc)]+ 
-                     [id_loc for i in range(n-k-1)]
-                    ) for k in range(n-1))
-    x = sum(qutip.tensor([id_loc for i in range(k)]+ 
-                     [(k-n/2)*(sz_loc + .5*id_loc)]+ 
-                     [id_loc for i in range(n-k-1)]
-                    ) for k in range(n-1))
-    Mauricio_noc = sum([qutip.tensor([id_loc for i in range(k)]+ 
-                     [(sz_loc + .5*id_loc)]+ 
-                     [id_loc for i in range(n-k-1)]) for k in range(n-1)])
-    Tom_noc = sum([spin_ops_list[3][k] + .5 * spin_ops_list[0][0] for k in range(n-1)])
-    Mauriciox = sum(qutip.tensor([id_loc for i in range(k)]+ 
-                     [(k-n/2)*(sz_loc + .5*id_loc)]+ 
-                     [id_loc for i in range(n-k-1)]
-                    ) for k in range(n-1))
-    Tomix = sum((k-n/2)*(spin_ops_list[3][k] + .5 * spin_ops_list[0][0]) for k in range(n-1))
     return None
+  
+# In [-5]:
 
-def classical_ops(Hamiltonian, N, op_list, centered_x_op = False):
-    
-    identity_op = op_list[0][0]; sz_list = op_list[3]    
-    labels = ["identity_op", "x_op", "p_op", "n_oc_op", "comm_xp", "corr_xp", "p_dot", "n_oc_disp"]
-    
-    cl_ops = {"identity_op": identity_op}
-    if centered_x_op:
-        cl_ops["x_op"] = sum((.5 + sz_list[k])*(k+1) for k in range(len(sz_list)))
-    else:
-        cl_ops["x_op"] = sum((k-N/2)*(sz_list[k] + .5 * identity_op) for k in range(len(sz_list)-1)) 
-        
-    cl_ops["p_op"] = 1j * commutator(cl_ops["x_op"], Hamiltonian)
-    cl_ops["n_oc_op"] = sum([sz_list[k] + .5 * identity_op for k in range(len(sz_list)-1)])
-    cl_ops["comm_xp"] = .5 * anticommutator(cl_ops["x_op"], cl_ops["p_op"])
-    cl_ops["corr_xp"] = -1j * commutator(cl_ops["x_op"], cl_ops["p_op"])
-    cl_ops["p_dot"] = 1j * commutator(Hamiltonian, cl_ops["p_op"])
-    cl_ops["n_oc_disp"] = (cl_ops["n_oc_op"]-1.)**2
-    
-    for i in range(len(labels)):
-        if qutip.isherm(cl_ops[labels[i]]):
-            pass
-        else:
-            print(labels[i], "not hermitian")
-    return cl_ops, labels
-    
 HS_modified = True
 
 class Result(object):
@@ -786,7 +1054,6 @@ def spin_chain_ev(size, init_state, chain_type, closed_bcs, Hamiltonian_paras, o
             rho = (rho+rho.dag())/trrho
             rhos.append(rho)
 
-        #print(qutip.entropy.entropy_vn(rho))
         newobs = [qutip.expect(rho, op) for op in obs]
         approx_exp_vals.append(newobs)
         
@@ -800,205 +1067,9 @@ def spin_chain_ev(size, init_state, chain_type, closed_bcs, Hamiltonian_paras, o
     else:
         title = f"{chain_type}-chain open ev/Proj ev for N={size} spins" 
     
-    #with open(title+".pkl","wb") as f:
-    #    pickle.dump(result, f)
-    
-    #print("type rho=", type(result["State ev"]))
-    
     ev_parameters = {"no. spins": size, "chain type": chain_type, "Model parameters": Hamiltonian_paras, "Sampling": sampling, 
                      "Two body basis": two_body_basis, "Closed ev": unitary_ev, "Colapse parameters": gamma, 
                      "Gaussian ev": gaussian, "Gaussian order": gr, "Non-gaussian para": xng, "Type of inner product": sc_prod,
                      "no. observables returned": len(obs), "Proj. ev": do_project}
     
     return title, ev_parameters, result
-
-# In [16]: 
-
-def build_reference_state(size, temp, Hamiltonian, lagrange_op, lagrange_mult, svd = True):
-    ### building the reference state
-    k_B = 1; beta = 1/(k_B * temp); 
-    K = -beta * (Hamiltonian - lagrange_mult * (lagrange_op - 1)**2)
-    K = K - max(K.eigenenergies(K)) 
-    rho_ref = K.expm()
-    rho_ref = rho_ref/rho_ref.tr()
-    if not is_density_op(rho_ref):
-        if (not qutip.isherm(rho_ref) or non_hermitianess_measure(rho_ref) < 1e-10):
-            # svd? 
-            rho_ref = .5 * (rho_ref + rho_ref.dag())
-        if not ev_checks(rho_ref):
-            sys.exit("Singular density op")
-            
-    #if svd:     #    Ks_max_value = max(linalg.svd(K)[1])
-    #if not svd:    #    Ks_max_value = min(linalg.eigvals(K).real)
-    return K, rho_ref
-
-def recursive_basis(depth, Hamiltonian, seed_op, rho0): 
-    basis = [seed_op]; loc_op = 0
-    if depth > 0: 
-        for i in range(1, depth):
-            loc_op = qutip.Qobj(-1j * commutator(Hamiltonian, basis[i-1]))
-            if (linalg.norm(loc_op) < 1e-10):
-                print("Operator at depth", i, "is null")
-                loc_op = None
-                break
-            loc_op = (loc_op * rho0).tr() - loc_op
-            basis.append(loc_op)
-    elif (depth == 0):
-        basis = []
-    return basis
-
-def vectorized_recursive_basis(depth_and_ops, Hamiltonian, rho0):        
-    basis_rec = []
-    for depth, op in depth_and_ops: 
-        basis_rec += recursive_basis(depth, Hamiltonian, op, rho0)
-    return basis_rec
-    
-# In [17]:
-
-def H_ij_matrix(Hamiltonian, basis, rho0, sc_prod):
-    coeffs_matrix = np.array([[sc_prod(op1, -1j * commutator(Hamiltonian, op2), rho0) for op2 in basis] for op1 in basis])
-    return coeffs_matrix
-
-def basis_orthonormality_check(basis, rho0, sc_prod): 
-
-    dim = len(basis)
-    
-    hermitian_basis = [linalg.norm(op1 - op1.dag()) < 1e-10 for op1 in basis]
-    assert np.all(hermitian_basis), ("Not all the operators are "
-                                     f"hermitician:\n {hermitian_basis}")
-
-    null_averages = [np.real((rho0 * op1).tr()) < 1e-10 for op1 in basis]
-    assert all(null_averages[1:]), ("Some operators do not have a null average:\n" 
-                                    f"{null_averages}")
-    
-    gram_matrix = [[sc_prod(op2, op1, rho0) for op2 in basis] for op1 in basis]
-    
-    normalized = [abs(gram_matrix[i][i]-1.)<1e-10  for i in range(dim)]
-    assert all(normalized), ("Some operators in the basis are not normalized:\n"
-                             f"{normalized}")
-
-    assert (linalg.norm(
-        (np.identity(dim) - gram_matrix) < 10**-10)), "Not all operators are pair-wise orthogonal"
-    
-    print("The basis is orthonormal and hermitian")
-    return True
-
-# In [18]:
-
-def build_rho0_from_basis(basis, temp=1.):
-    phi0 = [np.random.rand()/temp for b in basis]
-    k0 = -sum( f*op for f,op in zip(phi0, basis))
-    k0 = k0 - max(k0.eigenenergies())
-    rho0 = (k0).expm()
-    normalizacion = rho0.tr()
-    rho0 = rho0 / normalizacion
-    assert is_density_op(rho0, verbose=True), "rho is not a density matrix."
-    return phi0, rho0
-
-def visz_H_tensor_evs(Htensor):
-    if (type(Htensor) == qutip.Qobj):
-        Htensor_local = np.array(Htensor)
-    x = sorted(np.array(qutip.Qobj(Htensor_local).eigenenergies().real))
-    y = sorted(np.array(qutip.Qobj(Htensor_local).eigenenergies().imag))
-    z = np.arange(len(x))
-    fig1, ax1 = plt.subplots()
-    ax1.plot(z,x, label = "Real Part evs")
-    ax1.plot(z,y, label = "Imag part evs")
-    ax1.legend(loc=0)
-    ax1.set_title("H-tensor's eigenvalues' real and imag part")
-
-def semigroup_phit_and_rhot_sol(phi0, rho0, Htensor, ts, basis):
-    Phi_vector_solution = []; rho_at_timet = []
-    phi0=np.array(phi0)
-    Phi_vector_solution.append(phi0); rho_at_timet.append(rho0)
-    
-    new_phi = Phi_vector_solution[0]
-    for i in range(1, len(ts)-1):
-        evol_op = linalg.expm(ts[i]*Htensor)
-        new_phi = evol_op.dot(phi0)
-        Phi_vector_solution.append(new_phi)
-        K = -sum( f*op for f,op in zip(new_phi, basis))
-        K = K - max(K.eigenenergies()) 
-        # assert K.isherm, "K is not Hermitician "
-        if not K.isherm:
-            print("Non hermitician part norm:", np.linalg.norm( (K-K.dag()).full())  )
-            assert K.isherm, "K is not Hermitician "
-        rhot= K.expm()
-        #if (rhot.tr() < 1e-6):
-        #   continue 
-        rho_at_timet.append(rhot/rhot.tr())
-        #rho_at_timet.append(rhot)
-    return rho_at_timet, Phi_vector_solution    
-
-def semigroup_rhos_test(rho_list, visualization_nonherm, ts):
-    non_densitiness = [ (linalg.norm(rho_list[t] - rho_list[t].dag())/ linalg.norm(rho_list[t])) for t in range(len(rho_list))]
-    rho_list = [.5 * (rho_list[t] + rho_list[t].dag()) for t in range(len(rho_list))]
-            
-    if visualization_nonherm:
-        x2 = np.arange(len(non_densitiness))
-        y2 = non_densitiness
-        fig2, ax2 = plt.subplots()
-        ax2.plot(x2,y2)
-        ax2.legend(loc=0)
-        ax2.set_title("Non-hermitian measure for semigroup states")
-    return rho_list
-
-def LEGACY_plots(ts, res_proj_ev, res_exact):
-    z = ts[:-1]
-    fig3, ax3 = plt.subplots()
-    ax3.plot(z, res_proj_ev[0], label = "Manifold-proj")
-    ax3.plot(z, res_exact.expect[0][:-1], label = "Exact")
-    ax3.legend(loc=0)
-    ax3.set_title("Expected values for x_op - Exact v. Proj. ev. ")
-        
-    fig4, ax4 = plt.subplots()
-    ax4.plot(z, res_proj_ev[1], label = "Manifold-proj")
-    ax4.plot(z, res_exact.expect[1][:-1], label = "Exact")
-    ax4.legend(loc = 0)
-    ax4.set_title("Expected values for n_oc_op - Exact v. Proj. ev.")
-        
-    fig5, ax5 = plt.subplots()
-    ax5.plot(z, res_proj_ev[2], label = "Manifold-proj")
-    ax5.plot(z, res_exact.expect[2][:-1], label = "Exact")
-    ax5.legend(loc = 0)
-    ax5.set_title("Expected values for magnetization - Exact v. Proj. ev.")
-    
-def plot_exact_v_proj_ev_avgs(observables, label, ts, res_proj_ev, res_exact):
-    Tot = len(observables); Cols = 2
-    Rows = Tot // Cols 
-    if Tot % Cols != 0:
-        Rows += 1
-    Position = range(1,Tot + 1)
-    z = ts[:-1]
-    fig = plt.figure(figsize=(16, 32))
-    for k in range(Tot):
-        ax = fig.add_subplot(Rows,Cols,Position[k])
-        ax.plot(z, res_exact.expect[k][:-1], label = "Exact")
-        ax.plot(z, res_proj_ev[k], label = "Manifold proj")        
-        ax.legend(loc=0)
-        ax.set_title("Expected values: Proj-ev. v. Exact for " + label[k])
-    plt.show()
-
-    
-    
-def mesolve(H, rho0, tlist, c_ops=None, e_ops=None,**kwargs):
-    """
-    Wrapper for the qutip.mesolve function that allows to get
-    both the expectation values and the operators.
-    """
-    from typing import Callable
-    if e_ops is None or isinstance(e_ops, Callable):
-        return qutip.mesolve(H, rho0, tlist, c_ops, e_ops=e_ops, **kwargs)
-    
-    result = qutip.solver.Result()
-    result.expect = [[] for e in e_ops]
-    result.times = []
-
-    def callback(t, rho):
-        result.times.append(t)
-        result.states.append(rho)
-        for i, e in enumerate(e_ops):
-            result.expect[i].append(qutip.expect(rho, e))
-
-    qutip.mesolve(H, rho0, tlist, c_ops, e_ops=callback, **kwargs)
-    return result
