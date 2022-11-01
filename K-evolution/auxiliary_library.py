@@ -400,9 +400,6 @@ def base_orth(ops, rho0, sc_prod, visualization = False, reinforce_reality=False
                 print("*****************norm", op_norm)
             op_mod = op_mod/(op_norm)
             basis.append(op_mod)
-        #else:
-        #    if visualization:
-        #        print("*****************skip", op, " of norm", op_norm)
     return basis
 
 # In [7]: 
@@ -473,7 +470,7 @@ def bures(rho, sigma, svd = True):
     Evaluates the Bures metric between two density states. 
     """
     assert is_density_op(rho), "rho is not a density operator"
-    assert is_density_op(sigma), "sigma is not a density operator9"
+    assert is_density_op(sigma), "sigma is not a density operator"
     
     sqrt_sigma = sqrtM(sigma.full(), svd=svd)
     fidelity = sqrtM((sqrt_sigma @ rho.full()  @sqrt_sigma),svd=True).trace().real
@@ -633,18 +630,16 @@ def basis_orthonormality_check(basis, rho0, sc_prod, visualization_Gram_m = Fals
 
 def build_rho0_from_basis(coeff_list, basis, temp):    
     beta = 1/temp
-    
     if coeff_list == None:
-        phi0 = [0] + [np.random.rand() for b in basis[1:]]
+        phi0 = [0.] + [np.random.rand() for i in range(len(basis) -1)]
     else:
-        phi0 = coeff_list    
-    
-    k0 = -sum( f*op for f,op in zip(phi0, basis))
+        phi0 = [0.] + coeff_list[1:]    
+    k0 = -sum(f*op  for f, op in zip(phi0, basis))
     rho0 = (beta * k0).expm()
-    phi0[0] = np.log(rho0.tr())
-    k0 = -sum( f*op for f,op in zip(phi0, basis))
+    phi0[0]=np.log(rho0.tr())
+    k0 = -sum(f*op  for f, op in zip(phi0, basis))
     rho0 = (beta * k0).expm()
-    #assert is_density_op(rho0, verbose=True), "rho is not a density matrix."
+    assert is_density_op(rho0, verbose=True), "rho is not a density matrix."
     return phi0, rho0
 
 def semigroup_phit_and_rhot_sol(phi0, rho0, Htensor, ts, basis):
@@ -873,14 +868,13 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
     print("using a base of size ", len(basis_orth))
     print("rho_ref: ", rho_ref)
     
-    ### test 2
+    ### test 
     Gram_matrix = basis_orthonormality_check(basis = basis_orth, 
                                                   rho0 = rho_ref, 
                                                   sc_prod = HS_inner_prod_r)
     
     ### constructing the initial state and H-tensor
     phi0, rho0 = build_rho0_from_basis(coeff_list = coeff_list, basis = basis_orth, temp=temp_rho)
-    
     print("rho_0: ", rho0)
     Hijtensor = H_ij_matrix(Hamiltonian = Hamiltonian,
                                basis = basis_orth, 
@@ -896,17 +890,15 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
                                            visualization_nonherm = visualization_nonherm, ts = timespan)
     
     ### Projected solution
-    
     res_proj_ev_obs_list = [np.array([qutip.expect(obs, rhot) for rhot in res_proj_ev_rhot_list]) for obs in observables]
     print("Proj ev runtime = ", time.time() - start_time_proj_ev)
     
     dict_res_proj_ev = {}
     dict_res_proj_ev["Coeff_ev"] = phit
-    dict_res_proj_ev["State_ev"] = res_proj_ev_rhot_list
+    dict_res_proj_ev["State_ev"] = herm_rhot_list
     dict_res_proj_ev["Avgs"] = res_proj_ev_obs_list
     
     ### Exact solution 
-    
     start_time_exact = time.time()
     res_exact = mod_mesolve(Hamiltonian, rho0=rho0, tlist=timespan, c_ops=None, e_ops=observables)
     
