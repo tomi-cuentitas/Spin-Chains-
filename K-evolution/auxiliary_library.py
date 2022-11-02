@@ -110,6 +110,13 @@ def basis_hermitian_check(basis):
         basis = basis.values()
     return [null_matrix_check(op - op.dag()) for op in basis]
 
+def basis_not_equal(basis1, basis2):
+    
+    basis_elmts_dist = [("basis1 op:" + i, "basis2 op" + j, 
+                         linalg.norm(basis1[i] - basis2[j])) for i in range(len(basis1))
+                                                             for j in range(len(basis2))]
+    return (basis_elmts_dist)
+
 # In [3]: 
 
 def one_body_spin_ops(size):
@@ -401,6 +408,23 @@ def base_orth(ops, rho0, sc_prod, visualization = False, reinforce_reality=False
             op_mod = op_mod/(op_norm)
             basis.append(op_mod)
     return basis
+
+def mutual_coherence(basis1, basis2, rho0 = None, inner_prod_choice = HS_inner_prod_r):
+    """
+    Given two orthonormal bases, their mutual coherence
+    is calculated. This module takes as input:
+    ***. two orthonormal basis, basis1, basis2,
+    ***. an optional reference state,
+    ***. a Hilbert-Schmidt inner product, either its
+         real valued version or the complex-valued one.
+         
+    ===> Returns: 1. a list with all pairwise inner 
+                        product results,
+                  2. the bases' mutual coherence. 
+    """
+    cohr_list = [np.real(inner_prod_choice(op1, op2, rho0)) for op1 in basis1
+                                                   for op2 in basis2]
+    return cohr_list, max(cohr_list)
 
 # In [7]: 
 
@@ -836,14 +860,15 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
        QuTip's master equation solver.
     
     ===> Returns a. the Gram matrix, 
-                 b. the initial rho0-state,
+                 b. the initial configurations, the reference
+                     state, the initial state and the 
+                     orthonormal basis.
                  c. a dictionary containing the projected 
-                    time-evolution of the coefficients, the                     
-                    density states and the observables' time 
-                    evolution,
+                     time-evolution of the coefficients, the                     
+                     density states and the observables' time 
+                     evolution,
                  d. the exact results, obtained from QuTip's 
                     master equation solver,
-                 e. the orthonormal basis.
           
     """
     
@@ -891,10 +916,9 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
     res_proj_ev_obs_list = [np.array([qutip.expect(obs, rhot) for rhot in res_proj_ev_rhot_list]) for obs in observables]
     print("Proj ev runtime = ", time.time() - start_time_proj_ev)
     
-    dict_res_proj_ev = {}
-    dict_res_proj_ev["Coeff_ev"] = phit
-    dict_res_proj_ev["State_ev"] = herm_rhot_list
-    dict_res_proj_ev["Avgs"] = res_proj_ev_obs_list
+    initial_configs = {}; dict_res_proj_ev = {}
+    initial_configs["rho_ref"] = rho_ref; initial_configs["rho0"] = rho0; initial_configs["basis_orth"] = basis_orth
+    dict_res_proj_ev["Coeff_ev"] = phit; dict_res_proj_ev["State_ev"] = herm_rhot_list; dict_res_proj_ev["Avgs"] = res_proj_ev_obs_list
     
     ### Exact solution 
     start_time_exact = time.time()
@@ -907,7 +931,7 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
         label_metric = ["Bures Exact v. Proj ev", "S(exact || proj_ev)", "S(proj_ev || exact)"]
         plot_exact_v_proj_ev_metrics(timespan, dict_res_proj_ev["State_ev"], res_exact, label_metric)
     
-    return Gram_matrix, rho0, dict_res_proj_ev, res_exact, basis_orth
+    return Gram_matrix, initial_configs, dict_res_proj_ev, res_exact
 
 # In [-1]:
 
