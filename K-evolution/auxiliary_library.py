@@ -457,7 +457,6 @@ def logM(rho, svd = True):
         matrix_log = qutip.Qobj(matrix_log, dims)
     return matrix_log
 
-
 def sqrtM(rho, svd = True):
     """
     Evaluates the square root of a positive matrix rho.
@@ -869,7 +868,6 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
                      evolution,
                  d. the exact results, obtained from QuTip's 
                     master equation solver,
-          
     """
     
     ### building reference states and testing it
