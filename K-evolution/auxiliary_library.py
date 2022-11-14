@@ -726,20 +726,25 @@ def visz_H_tensor_evs(Htensor):
     ax1.legend(loc=0)
     ax1.set_title("H-tensor's eigenvalues' real and imag part")
 
-def plot_exact_v_proj_ev_avgs(observables, label, ts, res_proj_ev, res_exact):
-    Tot = len(observables); Cols = 3
+def plot_exact_v_proj_ev_avgs(obs, labels, timespan, Result_proj_ev, 
+                                                     Result_exact,
+                                                     visualize_diff_expt_vals):
+    Tot = len(obs); Cols = 3
     Rows = Tot // Cols 
     if Tot % Cols != 0:
         Rows += 1
     Position = range(1,Tot + 1)
-    z = ts[:-1]
+    z = timespan[:-1]
     fig = plt.figure(figsize=(18, 14))
     for k in range(Tot):
         ax = fig.add_subplot(Rows,Cols,Position[k])
-        ax.plot(z, res_exact.expect[k][:-1], label = "Exact")
-        ax.plot(z, res_proj_ev[k], label = "Manifold proj")        
+        if visualize_diff_expt_vals:
+            ax.plot(z, Result_exact.expect[k][:-1] - Result_proj_ev[k], label = "Exact diff Proj.ev")
+        else:
+            ax.plot(z, Result_exact.expect[k][:-1], label = "Exact")
+            ax.plot(z, Result_proj_ev[k], label = "Manifold proj")        
         ax.legend(loc=0)
-        ax.set_title("Expected values: Proj-ev. v. Exact for " + label[k])
+        ax.set_title("Expected values: Proj-ev. v. Exact for " + labels[k])
     plt.show()
 
 def exact_v_proj_ev_matrix_metrics(ts, res_proj_ev_rhot_list, res_exact):
@@ -797,7 +802,13 @@ def mod_mesolve(H, rho0, tlist, c_ops=None, e_ops=None,**kwargs):
 
 def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
                     depth_and_seed_ops, observables, label_ops, coeff_list = None, 
-                    visualize_H_evs = False, visualization_nonherm = False, visualize_expt_vals = True):
+                    custom_ref_state = None, 
+                    rho_ref_thermal_state = False, 
+                    rho_ref_equal_rho0 = False, 
+                    visualize_H_evs = False, 
+                    visualization_nonherm = False, 
+                    visualize_expt_vals = True, 
+                    visualize_diff_expt_vals = False):
     """
     This module constructs the adjoint K-evolution of 
     a quantum dynamical system. It takes as parameters:
@@ -814,6 +825,15 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
          constructed,
     ***. a chosen set of observables,
     ***. NO ESTOY SEGURO :(
+    ***. (Optional): a boolean option for considering
+                     a user-input reference state.
+    ***. (Optional): a boolean option for considering a
+                     reference state as a termal state,
+                     this is, the exponential of the sys-
+                     tem's Hamiltonian.
+    ***. (Optional): a boolean option for considering an
+                     initial state exactly equal to the 
+                     reference state.
     ***. (Optional): a boolean option for visualizing the 
                      H-tensor's eigenvalues. 
                      Default = False.
@@ -825,6 +845,9 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
                      the observables exact and approximated
                      ensemble averages.
                      Default = True.
+    ***. (Optional): a boolean option for visualizing, only,
+                     the observable-wise differences between
+                     the exact and the projected results.
     
     The algorithm works by constructing 
     
@@ -869,69 +892,111 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
                  d. the exact results, obtained from QuTip's 
                     master equation solver,
     """
-    
+    ### Projected solutions
     ### building reference states and testing it
     start_time_proj_ev = time.time()
-    K_ref, rho_ref = build_reference_state(temp = temp_ref, 
-                                              Hamiltonian = Hamiltonian,
-                                              lagrange_op = lagrange_op, 
-                                              lagrange_mult = .5)
+    if custom_ref_state is None:
+        if rho_ref_thermal_state:
+            beta_ref = 1/temp_ref
+            K_ref = beta_ref * Hamiltonian 
+            rho_ref = (K_ref).expm()
+            rho_ref = rho_ref/rho_ref.tr()
+            assert is_density_op(rho_ref), "Reference state not a density op"
+        
+        else:
+            K_ref, rho_ref = build_reference_state(temp = temp_ref, 
+                                                  Hamiltonian = Hamiltonian,
+                                                  lagrange_op = lagrange_op, 
+                                                  lagrange_mult = .5)
+    else:
+        rho_ref = custom_ref_state
     
     basis_incursive = vectorized_recursive_basis(depth_and_ops=depth_and_seed_ops,                                             
-                                                    Hamiltonian=Hamiltonian, 
-                                                    rho0=rho_ref)
+                                                  Hamiltonian=Hamiltonian, 
+                                                  rho0=rho_ref)
     
     basis_orth = base_orth(ops = basis_incursive, 
-                              rho0 = rho_ref, 
-                              sc_prod = HS_inner_prod_r, 
-                              visualization = False, reinforce_reality=False)
-    
+                           rho0 = rho_ref, 
+                           sc_prod = HS_inner_prod_r, 
+                           visualization = False, reinforce_reality=False)   
     print("using a base of size ", len(basis_orth))
     print("rho_ref: ", rho_ref)
     
     ### test 
     Gram_matrix = basis_orthonormality_check(basis = basis_orth, 
-                                                  rho0 = rho_ref, 
-                                                  sc_prod = HS_inner_prod_r)
+                                             rho0 = rho_ref, 
+                                             sc_prod = HS_inner_prod_r)
     
     ### constructing the initial state and H-tensor
-    phi0, rho0 = build_rho0_from_basis(coeff_list = coeff_list, basis = basis_orth, temp=temp_rho)
+    
+    if rho_ref_equal_rho0: 
+        phi0 = coeff_list; rho0 = rho_ref    
+    else: 
+        phi0, rho0 = build_rho0_from_basis(coeff_list = coeff_list, basis = basis_orth, temp=temp_rho)
+        
     print("rho_0: ", rho0)
     Hijtensor = H_ij_matrix(Hamiltonian = Hamiltonian,
-                               basis = basis_orth, 
-                               rho0 = rho_ref, 
-                               sc_prod = HS_inner_prod_r)
-   
+                            basis = basis_orth, 
+                            rho0 = rho_ref, 
+                            sc_prod = HS_inner_prod_r)
+    
     ### constructing the coefficient arrays and the physical states
-    res_proj_ev_rhot_list, phit = semigroup_phit_and_rhot_sol(phi0 = phi0, rho0 = rho0, 
-                                                     Htensor = Hijtensor, ts = timespan, basis = basis_orth)
+    res_proj_ev_rhot_list, phit_list = semigroup_phit_and_rhot_sol(phi0 = phi0, 
+                                                                   rho0 = rho0, 
+                                                                   Htensor = Hijtensor, 
+                                                                   ts = timespan, 
+                                                                   basis = basis_orth)
 
     ### test 3
     herm_rhot_list = semigroup_rhos_test(rho_list = res_proj_ev_rhot_list, 
-                                           visualization_nonherm = visualization_nonherm, ts = timespan)
-    
-    ### Projected solution
-    res_proj_ev_obs_list = [np.array([qutip.expect(obs, rhot) for rhot in res_proj_ev_rhot_list]) for obs in observables]
-    print("Proj ev runtime = ", time.time() - start_time_proj_ev)
-    
-    initial_configs = {}; dict_res_proj_ev = {}
-    initial_configs["rho_ref"] = rho_ref; initial_configs["rho0"] = rho0; initial_configs["basis_orth"] = basis_orth
-    dict_res_proj_ev["Coeff_ev"] = phit; dict_res_proj_ev["State_ev"] = herm_rhot_list; dict_res_proj_ev["Avgs"] = res_proj_ev_obs_list
+                                         visualization_nonherm = visualization_nonherm, 
+                                         ts = timespan)
+   
+    res_proj_ev_obs_list = [np.array([qutip.expect(obs, rhot) for rhot in herm_rhot_list]) for obs in observables]
+    proj_ev_runtime = time.time() - start_time_proj_ev
     
     ### Exact solution 
     start_time_exact = time.time()
     res_exact = mod_mesolve(Hamiltonian, rho0=rho0, tlist=timespan, c_ops=None, e_ops=observables)
     
-    print("Exact ev runtime = ", time.time() - start_time_exact)
+    assert rho0 == res_exact.states[0], "Error: Exact initial state != Proj-ev initial state"
+    exact_ev_runtime = time.time() - start_time_exact
+    
+    initial_configs = {}; 
+    initial_configs["Gram matrix"] = Gram_matrix; initial_configs["rho_ref"] = rho_ref
+    initial_configs["rho0"] = rho0; initial_configs["basis_orth"] = basis_orth
+    
+    dict_res_proj_ev = {}
+    dict_res_proj_ev["Coeff_ev"] = phit_list
+    dict_res_proj_ev["State_ev"] = herm_rhot_list; 
+    dict_res_proj_ev["Avgs"] = res_proj_ev_obs_list
     
     if visualize_expt_vals:
-        plot_exact_v_proj_ev_avgs(observables, label_ops, timespan, dict_res_proj_ev["Avgs"], res_exact)
+        plot_exact_v_proj_ev_avgs(obs = observables, labels = label_ops, timespan = timespan, 
+                                  Result_proj_ev = dict_res_proj_ev["Avgs"], 
+                                  Result_exact = res_exact, 
+                                  visualize_diff_expt_vals = visualize_diff_expt_vals)
         label_metric = ["Bures Exact v. Proj ev", "S(exact || proj_ev)", "S(proj_ev || exact)"]
         plot_exact_v_proj_ev_metrics(timespan, dict_res_proj_ev["State_ev"], res_exact, label_metric)
     
-    return Gram_matrix, initial_configs, dict_res_proj_ev, res_exact
+    evs_data = {}
+    evs_data["proj_ev_runtime"] = proj_ev_runtime
+    evs_data["exact_ev_runtime"] = exact_ev_runtime
+    
+    return initial_configs, evs_data, dict_res_proj_ev, res_exact
 
-# In [-1]:
+################-----------------------------#################################-----------------------------############################
+                                                      #%%%%%%%%%%%%%%#
+################-----------------------------#################################-----------------------------############################
+################-----------------------------#################################-----------------------------############################
+                                                      #%%%%%%%%%%%%%%#
+################-----------------------------#################################-----------------------------############################
+################-----------------------------#################################-----------------------------############################
+                                                      #%%%%%%%%%%%%%%#
+################-----------------------------#################################-----------------------------############################
+################-----------------------------#################################-----------------------------############################
+                                                      #%%%%%%%%%%%%%%#
+################-----------------------------#################################-----------------------------############################
 
 natural = tuple('123456789')
 def n_body_basis(op_list, gr, N):
