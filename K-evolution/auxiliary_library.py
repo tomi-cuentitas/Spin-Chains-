@@ -12,7 +12,16 @@ import scipy.linalg as linalg
 def ev_checks(rho):
     """
     This module checks if the matrix is positive 
-    definite i.e. if all its eigenvalues are positive
+    definite i.e. if all its eigenvalues are positive.
+    This module takes as input the following parameters:
+    
+        *♥*♥* 1. rho: a qutip.Qobj,
+        ====> Returns: a boolean, its truth value
+                                  being whether or not 
+                                  rho is a positive-definite
+                                  matrix. 
+        Warnings: None.
+    
     """
     if isinstance(rho, qutip.Qobj):
         rho = rho.full()
@@ -24,11 +33,33 @@ def ev_checks(rho):
 
 def is_density_op(rho, verbose=False, critical=False, tol = 1e-10):
     """
-    This module checks if the user-input Qobj,
+    This module checks if the user-input qutip.Qobj,
     rho, is a density operator or not. This is done 
     by checking if it is a hermitian, positive definite,  
-    and trace-one, matrix. This module takes 
-    *. a user input Qobj,
+    and trace-one, matrix. 
+    This module takes as input the following parameters:
+    
+        *♥*♥* 1. rho: a qutip.Qobj,
+        *♥*♥* 2. verbose: an optional boolean parameter 
+                          for printing out logs,
+                          stating which tests rho hasn't 
+                          passed
+                          
+        *♥*♥* 3. critical: an optional boolean parameter
+        *♥*♥* 4. tol: an optional boolean parameter for 
+        
+        
+        ====> Returns: a boolean, its truth value
+                                  being whether or not 
+                                  rho is a density matrix.
+        Warnings: Due to numerical instabilities, 
+                    it may be possible 
+    for the trace to not be exactly one, even though 
+    it is supposed to be. Therefore, a cut-off is 
+    implemented to check for this condition..
+    
+    
+        *_*_* 1. rho: a user input Qobj,
     *. an optional boolean parameter for printing out
         it the Qobj passes these tests.
     *. an optional boolean 
@@ -792,7 +823,6 @@ def plot_exact_v_proj_ev_metrics(ts, res_proj_ev_rhot_list, res_exact, label_met
         ax.set_title("Matrix metrics")
     plt.show()    
     
-    
 def mod_mesolve(H, rho0, tlist, c_ops=None, e_ops=None,**kwargs):
     """
     Wrapper for the qutip.mesolve function that allows to get
@@ -1021,6 +1051,132 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
     Hijtensor =None; phit_list = None; herm_rhot_list = None; res_proj_ev_obs_list = None
     
     return initial_configs, evs_data, dict_res_proj_ev, res_exact
+
+### Approved
+
+def process_multiple_proj_evs(init_coeff_list,
+                              timespan, 
+                              range_temps, 
+                              process_different_ref_temps = False):
+    
+    if process_different_ref_temps:
+        depth_and_seed_ops = [(1, cl_ops["identity_op"]), 
+                              (1, H_H), 
+                              (4, spin_ops_list[1][0]),
+                             ]
+        labels = ["Temp_" + str(i) for i in range(len(range_temps))]
+        observables = list(cl_ops.values())
+        
+        mutiple_ev_results = {}
+        multiple_init_configs = {}; multiple_evs_data = {}; multiple_dict_res_proj_ev = {}; multiple_res_exact = {}
+        
+        for Temp_Ref in range_temps:
+            print("Processing step: ", range_temps.index(Temp_Ref), "and temperature ", Temp_Ref)
+            
+            loc_coeff_list = init_coeff_list
+            
+            beta_ref = (1/Temp_Ref)
+            K_ref = - beta_ref * .5 * spin_ops_list[1][0]
+            rho_ref = (K_ref).expm()
+            custom_rho_ref = rho_ref/rho_ref.tr()
+            
+            assert is_density_op(custom_rho_ref), "Error: rho_ref is not a density operator"
+            
+            init_configs_MFT_state, evs_data, dict_res_proj_ev, res_exact = d_depth_proj_ev(
+                temp_ref = Temp_Ref, temp_rho = temp, 
+                timespan = timespan, 
+                Hamiltonian = H_H, lagrange_op = None,
+                depth_and_seed_ops = depth_and_seed_ops, observables = observables, 
+                label_ops = label_ops, coeff_list = loc_coeff_list, 
+                custom_ref_state = custom_rho_ref, 
+                rho_ref_thermal_state = False,
+                rho_ref_equal_rho0 = False, visualize_H_evs = False, 
+                visualization_nonherm = False, visualize_expt_vals = False, visualize_diff_expt_vals = False
+                )
+            
+            multiple_init_configs["init_configs_T" + str(range_temps.index(Temp_Ref))] = init_configs_MFT_state
+            multiple_evs_data["evs_data_T" + str(range_temps.index(Temp_Ref))] = evs_data
+            multiple_dict_res_proj_ev["dict_res_proj_ev_T" + str(range_temps.index(Temp_Ref))] = dict_res_proj_ev
+            multiple_res_exact["res_exact_T" + str(range_temps.index(Temp_Ref))] = res_exact
+                        
+        mutiple_ev_results["init_configs_all"] = multiple_init_configs
+        mutiple_ev_results["evs_data_all"] = multiple_evs_data
+        mutiple_ev_results["dict_res_proj_ev_all"] = multiple_dict_res_proj_ev
+        mutiple_ev_results["res_exact_all"] = multiple_res_exact
+            
+        return mutiple_ev_results
+    
+### APPROVED
+def plot_exact_v_proj_ev_avgs_multiple(obs, labels, timespan, no_cols_desired,
+                                                     multiple_evolutions,
+                                                     range_temps, 
+                                                     visualize_diff_expt_vals = False):
+    
+    Tot = len(obs); Cols = no_cols_desired
+    Rows = Tot // Cols 
+    if Tot % Cols != 0:
+        Rows += 1
+    Position = range(1,Tot + 1)
+    z = timespan[:-1]
+    fig = plt.figure(figsize=(24, 14))
+    range_temps_labels = [i for i in range(len(range_temps))]
+    for k in range(Tot):
+        ax = fig.add_subplot(Rows, Cols, Position[k])
+        for T in range_temps:
+            ax.plot(z, multiple_ev_results["dict_res_proj_ev_all"]["dict_res_proj_ev_T" + str(range_temps.index(T))]["Avgs"][k],
+                    label = "Proj_ev.T=" + str(T))
+            ax.plot(z, multiple_ev_results["res_exact_all"]["res_exact_T" + str(range_temps.index(T))].expect[k][:-1],
+                    label = "Ex_evT=" + str(T))
+        ax.legend(loc=0)
+        ax.set_title("Expected values: Proj-ev. v. Exact for " + labels[k])   
+    plt.show()
+    
+### APPROVED
+def exact_v_proj_ev_matrix_metrics_multiple(timespan, range_temps, multiple_evolutions):
+    
+    z = timespan[:-1]
+    bures_Ex_v_Proj_all = {}
+    relEntropy_Ex_v_Proj_all = {}
+    relEntropy_Proj_v_Ex_all = {}
+    
+    for T in range_temps: 
+        rhot_list = multiple_ev_results["dict_res_proj_ev_all"]["dict_res_proj_ev_T" + str(range_temps.index(T))]["State_ev"]
+        sigmat_list = multiple_ev_results["res_exact_all"]["res_exact_T" + str(range_temps.index(T))].states[:-1]
+        
+        bures_Ex_v_Proj_all["T" + str(range_temps.index(T))] = bures_vectorized(rhot_list = rhot_list,
+                                                                                   sigmat_list = sigmat_list)
+        local = relative_entropies_vectorized (rhot_list = rhot_list, sigmat_list = sigmat_list)
+        relEntropy_Proj_v_Ex_all["T" + str(range_temps.index(T))] = local[0]
+        relEntropy_Ex_v_Proj_all["T" + str(range_temps.index(T))] = local[1]
+        rhot_list = None; sigmat_list = None
+    
+    return bures_Ex_v_Proj_all, relEntropy_Ex_v_Proj_all, relEntropy_Proj_v_Ex_all
+
+### APPROVED
+def plot_exact_v_proj_ev_metrics_multiple(timespan, range_temps, multiple_evolutions):
+    
+    label_metric = ["Bures Exact v. Proj ev", "S(exact || proj_ev)", "S(proj_ev || exact)"]
+    metric_local = exact_v_proj_ev_matrix_metrics_multiple(timespan = timespan, 
+                                                           range_temps = range_temps, 
+                                                           multiple_evolutions = multiple_evolutions)
+    Tot = len(label_metric); Cols = 3
+    Rows = Tot // Cols 
+    if Tot % Cols != 0:
+        Rows += 1
+    Position = range(1,Tot + 1)
+    z = ts[:-1]
+    fig = plt.figure(figsize=(10, 5))
+    for k in range(Tot):
+        ax = fig.add_subplot(Rows,Cols,Position[k])
+        for T in range_temps:
+            ax.plot(z, metric_local[k]["T"+str(range_temps.index(T))], label = "Exact v. Proj ev: " + label_metric[k])
+            ax.legend(loc=0)
+        ax.set_title("Matrix metrics")
+    plt.show()    
+
+
+
+
 
 ################-----------------------------#################################-----------------------------############################
                                                       #%%%%%%%%%%%%%%#
