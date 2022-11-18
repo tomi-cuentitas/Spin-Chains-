@@ -67,13 +67,11 @@ def null_matrix_check(rho, tol = 1e-10):
     return (linalg.norm(rho) < tol)
 
 def commutator(A, B):
-    result = 0
     if A.dims[0][0] == B.dims[0][0]: 
         pass
     else:
         raise Exception("Incompatible Qobj dimensions")
-    result += A*B-B*A
-    return result
+    return A*B - B*A
 
 def anticommutator(A, B):
     result = 0
@@ -321,6 +319,13 @@ def Heisenberg_Hamiltonian_tests(spin_ops_list, N):
 #In [6]:
 
 def prod_basis(b1, b2):
+    """
+    This module constructs the tensor product of two
+    operators. It takes as input:
+        
+    ***. two qutip.Qobjs
+    
+    """
     return [qutip.tensor(b,s) for b in b1 for s in b2]
 
 def HS_inner_prod_t(op1, op2, rho0 = None): ### previous name: HS_inner_prod(A, B, rho0 = None):
@@ -652,16 +657,26 @@ def basis_orthonormality_check(basis, rho0, sc_prod, visualization_Gram_m = Fals
 # In [12]:
 
 def build_rho0_from_basis(coeff_list, basis, temp): 
-    beta = 1/temp
+    """
+    This module, using an operator basis and an initial
+    array of numbers, constructs the gaussian initial 
+    state 
     
+    """
+    
+    
+    beta = 1/temp
     if (coeff_list == None):
         coeff_list = [0.] + [np.random.rand() for i in range(len(basis) - 1)]
-        
-    rho0 = (-sum( f*op  for f, op in zip(coeff_list, basis))).expm()
-    coeff_list[0]=np.log(rho0.tr())
-    rho0 = (-sum( f*op  for f, op in zip(coeff_list, basis))).expm()
+     
+    loc_coeff_list = coeff_list
+    rho0 = (-sum( f*op  for f, op in zip(loc_coeff_list, basis))).expm()
+    rho0 = rho0/rho0.tr()
+    #loc_coeff_list[0] = np.log(rho0.tr())
+    #rho0 = (-sum( f*op  for f, op in zip(loc_coeff_list, basis))).expm()
+    
     assert is_density_op(rho0, verbose=True), "rho is not a density matrix."
-    return coeff_list, rho0
+    return loc_coeff_list, rho0
 
 def semigroup_phit_and_rhot_sol(phi0, rho0, Htensor, ts, basis):
     """
@@ -761,6 +776,7 @@ def exact_v_proj_ev_matrix_metrics(ts, res_proj_ev_rhot_list, res_exact):
     return bures_exact_v_proj_ev_list, relent_ex_v_proj_ev_list, relent_proj_ev_v_ex
 
 def plot_exact_v_proj_ev_metrics(ts, res_proj_ev_rhot_list, res_exact, label_metric):
+    
     metric_local = exact_v_proj_ev_matrix_metrics(ts, res_proj_ev_rhot_list, res_exact)
     Tot = len(label_metric); Cols = 3
     Rows = Tot // Cols 
@@ -775,6 +791,7 @@ def plot_exact_v_proj_ev_metrics(ts, res_proj_ev_rhot_list, res_exact, label_met
         ax.legend(loc=0)
         ax.set_title("Matrix metrics")
     plt.show()    
+    
     
 def mod_mesolve(H, rho0, tlist, c_ops=None, e_ops=None,**kwargs):
     """
@@ -825,6 +842,9 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
          constructed,
     ***. a chosen set of observables,
     ***. NO ESTOY SEGURO :(
+    ***. (Optional): a boolean option to control whether
+                     or not the projected evolution is 
+                     performed.
     ***. (Optional): a boolean option for considering
                      a user-input reference state.
     ***. (Optional): a boolean option for considering a
@@ -894,47 +914,55 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
     """
     ### Projected solutions
     ### building reference states and testing it
+    
     start_time_proj_ev = time.time()
+    print("1. Processing reference state ===>")
     if custom_ref_state is None:
         if rho_ref_thermal_state:
+            print("    ^^##. thermal reference state chosen")
             beta_ref = 1/temp_ref
             K_ref = beta_ref * Hamiltonian 
             rho_ref = (K_ref).expm()
             rho_ref = rho_ref/rho_ref.tr()
-            assert is_density_op(rho_ref), "Reference state not a density op"
+            assert is_density_op(rho_ref), "reference state not a density op"
         
         else:
+            print("    ^^##. thermal reference state with Lagrange multiplier chosen")
             K_ref, rho_ref = build_reference_state(temp = temp_ref, 
-                                                  Hamiltonian = Hamiltonian,
-                                                  lagrange_op = lagrange_op, 
-                                                  lagrange_mult = .5)
+                                                   Hamiltonian = Hamiltonian,
+                                                   lagrange_op = lagrange_op, 
+                                                   lagrange_mult = .5)
     else:
+        print("    ^^##. custom reference state chosen")
         rho_ref = custom_ref_state
     
     basis_incursive = vectorized_recursive_basis(depth_and_ops=depth_and_seed_ops,                                             
-                                                  Hamiltonian=Hamiltonian, 
-                                                  rho0=rho_ref)
+                                                 Hamiltonian=Hamiltonian, 
+                                                 rho0=rho_ref)
     
     basis_orth = base_orth(ops = basis_incursive, 
                            rho0 = rho_ref, 
                            sc_prod = HS_inner_prod_r, 
                            visualization = False, reinforce_reality=False)   
-    print("using a base of size ", len(basis_orth))
-    print("rho_ref: ", rho_ref)
+    print("2. using a base of size ", len(basis_orth))
+    print("3. rho_ref: ", rho_ref)
     
-    ### test 
+        ### test 
     Gram_matrix = basis_orthonormality_check(basis = basis_orth, 
                                              rho0 = rho_ref, 
                                              sc_prod = HS_inner_prod_r)
     
-    ### constructing the initial state and H-tensor
+        ### constructing the initial state and H-tensor
+    
+    loc_coeff_list = coeff_list
     
     if rho_ref_equal_rho0: 
-        phi0 = coeff_list; rho0 = rho_ref    
+        print("3. using rho0 = rho_ref")
+        phi0 = loc_coeff_list; rho0 = rho_ref    
     else: 
-        phi0, rho0 = build_rho0_from_basis(coeff_list = coeff_list, basis = basis_orth, temp=temp_rho)
+        print("3. constructing rho0 from the coeff. list and orth. basis")
+        phi0, rho0 = build_rho0_from_basis(coeff_list = loc_coeff_list, basis = basis_orth, temp=temp_rho)
         
-    print("rho_0: ", rho0)
     Hijtensor = H_ij_matrix(Hamiltonian = Hamiltonian,
                             basis = basis_orth, 
                             rho0 = rho_ref, 
@@ -946,8 +974,7 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
                                                                    Htensor = Hijtensor, 
                                                                    ts = timespan, 
                                                                    basis = basis_orth)
-
-    ### test 3
+     ### test 3
     herm_rhot_list = semigroup_rhos_test(rho_list = res_proj_ev_rhot_list, 
                                          visualization_nonherm = visualization_nonherm, 
                                          ts = timespan)
@@ -967,6 +994,7 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
     initial_configs["rho0"] = rho0; initial_configs["basis_orth"] = basis_orth
     
     dict_res_proj_ev = {}
+    dict_res_proj_ev["H_tensor"] = Hijtensor
     dict_res_proj_ev["Coeff_ev"] = phit_list
     dict_res_proj_ev["State_ev"] = herm_rhot_list; 
     dict_res_proj_ev["Avgs"] = res_proj_ev_obs_list
@@ -975,13 +1003,22 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
         plot_exact_v_proj_ev_avgs(obs = observables, labels = label_ops, timespan = timespan, 
                                   Result_proj_ev = dict_res_proj_ev["Avgs"], 
                                   Result_exact = res_exact, 
-                                  visualize_diff_expt_vals = visualize_diff_expt_vals)
+                                  visualize_diff_expt_vals = visualize_diff_expt_vals
+                                  )
         label_metric = ["Bures Exact v. Proj ev", "S(exact || proj_ev)", "S(proj_ev || exact)"]
-        plot_exact_v_proj_ev_metrics(timespan, dict_res_proj_ev["State_ev"], res_exact, label_metric)
+        plot_exact_v_proj_ev_metrics(timespan, 
+                                     dict_res_proj_ev["State_ev"], 
+                                     res_exact, 
+                                     label_metric
+                                    )
     
     evs_data = {}
     evs_data["proj_ev_runtime"] = proj_ev_runtime
     evs_data["exact_ev_runtime"] = exact_ev_runtime
+    
+    coeff_list = None; loc_coeff_list = None
+    Gram_matrix = None; rho_ref = None; rho0 = None; basis_orth = None
+    Hijtensor =None; phit_list = None; herm_rhot_list = None; res_proj_ev_obs_list = None
     
     return initial_configs, evs_data, dict_res_proj_ev, res_exact
 
