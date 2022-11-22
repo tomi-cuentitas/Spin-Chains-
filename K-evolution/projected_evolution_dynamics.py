@@ -381,40 +381,33 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
     
     return initial_configs, evs_data, dict_res_proj_ev, res_exact
 
-### Approved
-
-def process_multiple_proj_evs(cl_ops, label_ops, spin_ops_list,
-                              Hamiltonian,
-                              temp, 
-                              init_coeff_list,
-                              timespan, 
-                              range_temps, 
-                              process_different_ref_temps = False):
+def N_fixed_multiple_temps_proj_evs(depth_and_seed_ops, observables, label_ops, 
+                                    ref_operator,
+                                    Hamiltonian,
+                                    temp_rho, 
+                                    init_coeff_list,
+                                    timespan, 
+                                    range_temps):
     
-    if process_different_ref_temps:
-        depth_and_seed_ops = [(1, cl_ops["identity_op"]), 
-                              (1, Hamiltonian), 
-                              (4, spin_ops_list[1][0]),
-                             ]
-        labels = ["Temp_" + str(i) for i in range(len(range_temps))]
-        observables = list(cl_ops.values())
-        multiple_evolutions = {}
-        multiple_init_configs = {}; multiple_evs_data = {}; multiple_dict_res_proj_ev = {}; multiple_res_exact = {}
+    
+    labels = ["Temp_" + str(i) for i in range(len(range_temps))]
+    multiple_evolutions = {}
+    multiple_init_configs = {}; multiple_evs_data = {}; multiple_dict_res_proj_ev = {}; multiple_res_exact = {}
         
-        for Temp_Ref in range_temps:
-            print("Processing step: ", range_temps.index(Temp_Ref), "and temperature ", Temp_Ref)
-            
-            loc_coeff_list = init_coeff_list
-            
-            beta_ref = (1/Temp_Ref)
-            K_ref = - beta_ref * .5 * spin_ops_list[1][0]
-            rho_ref = (K_ref).expm()
-            custom_rho_ref = rho_ref/rho_ref.tr()
-            
-            assert mat_ansys.is_density_op(custom_rho_ref), "Error: rho_ref is not a density operator"
-            
-            init_configs_MFT_state, evs_data, dict_res_proj_ev, res_exact = d_depth_proj_ev(
-                temp_ref = Temp_Ref, temp_rho = temp, 
+    for Temp_Ref in range_temps:
+        print("Processing step: ", range_temps.index(Temp_Ref), "and temperature ", Temp_Ref)
+        
+        loc_coeff_list = init_coeff_list
+        
+        beta_ref = (1/Temp_Ref)
+        K_ref = - beta_ref * .5 * ref_operator
+        rho_ref = (K_ref).expm()
+        custom_rho_ref = rho_ref/rho_ref.tr()
+        
+        assert mat_ansys.is_density_op(custom_rho_ref), "Error: rho_ref is not a density operator"
+        
+        init_configs_MFT_state, evs_data, dict_res_proj_ev, res_exact = d_depth_proj_ev(
+                temp_ref = Temp_Ref, temp_rho = temp_rho, 
                 timespan = timespan, 
                 Hamiltonian = Hamiltonian, lagrange_op = None,
                 depth_and_seed_ops = depth_and_seed_ops, observables = observables, 
@@ -425,14 +418,83 @@ def process_multiple_proj_evs(cl_ops, label_ops, spin_ops_list,
                 visualization_nonherm = False, visualize_expt_vals = False, visualize_diff_expt_vals = False
                 )
             
-            multiple_init_configs["init_configs_T" + str(range_temps.index(Temp_Ref))] = init_configs_MFT_state
-            multiple_evs_data["evs_data_T" + str(range_temps.index(Temp_Ref))] = evs_data
-            multiple_dict_res_proj_ev["dict_res_proj_ev_T" + str(range_temps.index(Temp_Ref))] = dict_res_proj_ev
-            multiple_res_exact["res_exact_T" + str(range_temps.index(Temp_Ref))] = res_exact
+        multiple_init_configs["init_configs_T" + str(range_temps.index(Temp_Ref))] = init_configs_MFT_state
+        multiple_evs_data["evs_data_T" + str(range_temps.index(Temp_Ref))] = evs_data
+        multiple_dict_res_proj_ev["dict_res_proj_ev_T" + str(range_temps.index(Temp_Ref))] = dict_res_proj_ev
+        multiple_res_exact["res_exact_T" + str(range_temps.index(Temp_Ref))] = res_exact
                         
-        multiple_evolutions["init_configs_all"] = multiple_init_configs
-        multiple_evolutions["evs_data_all"] = multiple_evs_data
-        multiple_evolutions["dict_res_proj_ev_all"] = multiple_dict_res_proj_ev
-        multiple_evolutions["res_exact_all"] = multiple_res_exact
+    multiple_evolutions["init_configs_all"] = multiple_init_configs
+    multiple_evolutions["evs_data_all"] = multiple_evs_data
+    multiple_evolutions["dict_res_proj_ev_all"] = multiple_dict_res_proj_ev
+    multiple_evolutions["res_exact_all"] = multiple_res_exact
             
-        return multiple_evolutions
+    return multiple_evolutions
+
+def temp_fixed_multiple_dims_proj_evs(chain_type, Hamiltonian_paras,
+                                      derived_series_op_order, 
+                                      temp_ref, temp_rho, 
+                                      init_coeff_list,
+                                      timespan, range_dims, ref_operator_type = "Mean_field_state"):
+
+    labels = ["dim_" + str(i) for i in range(len(range_dims))]
+    multiple_evolutions = {}
+    multiple_init_configs = {}; multiple_evs_data = {}; multiple_dict_res_proj_ev = {}; multiple_res_exact = {}
+
+    for length in range_dims:
+        #try: 
+            print("Processing step: ", range_dims.index(length), "and spin-chain of length  ", length)
+            spin_ops_list = su2.one_body_spin_ops(length)
+            identity_op = spin_ops_list[0][0]
+    
+            Hamiltonian = su2.Heisenberg_Hamiltonian(op_list = spin_ops_list, chain_type = chain_type,
+                                                     size = length, Hamiltonian_paras = Hamiltonian_paras,
+                                                     closed_bcs = True, visualization = False)
+        
+            cl_ops, label_ops = su2.classical_ops(Hamiltonian, length, spin_ops_list, False)
+            magnetization = sum(spin_ops_list[3][a] for a in range(len(spin_ops_list[3])))
+            neel_operator = sum((-1)**a * spin_ops_list[3][a] for a in range(len(spin_ops_list[3])))
+            cl_ops["magnetization"] = magnetization; label_ops.append("magnetization")
+            cl_ops["neel_op"] = neel_operator; label_ops.append("neel_op")
+            assert mat_ansys.basis_hermitian_check(cl_ops), "Not all operators are Hermitian"
+            
+            beta_ref = (1/temp_ref)
+            if ref_operator_type == "Mean_field_state":
+                
+                depth_and_seed_ops = [(1, cl_ops["identity_op"]), 
+                      (1, Hamiltonian), 
+                      (derived_series_op_order, spin_ops_list[1][0]),
+                      ]
+                
+                K_ref = - beta_ref * .5 * spin_ops_list[1][0]
+                
+            rho_ref = (K_ref).expm()
+            custom_rho_ref = rho_ref/rho_ref.tr(); rho_ref = None
+            
+            assert mat_ansys.is_density_op(custom_rho_ref), "Reference State not density op"
+        
+            init_configs_MFT_state, evs_data, dict_res_proj_ev, res_exact = d_depth_proj_ev(
+                    temp_ref = temp_ref, temp_rho = temp_rho, 
+                    timespan = timespan, 
+                    Hamiltonian = Hamiltonian, lagrange_op = None,
+                    depth_and_seed_ops = depth_and_seed_ops, observables = list(cl_ops.values()),
+                    label_ops = label_ops, coeff_list = init_coeff_list, 
+                    custom_ref_state = custom_rho_ref, 
+                    rho_ref_thermal_state = False, rho_ref_equal_rho0 = False, visualize_H_evs = False, 
+                    visualization_nonherm = False, visualize_expt_vals = False, visualize_diff_expt_vals = False
+                    )
+       
+            multiple_init_configs["init_configs_N" + str(range_dims.index(length))] = init_configs_MFT_state
+            multiple_evs_data["evs_data_N" + str(range_dims.index(length))] = evs_data
+            multiple_dict_res_proj_ev["dict_res_proj_ev_N" + str(range_dims.index(length))] = dict_res_proj_ev
+            multiple_res_exact["res_exact_N" + str(range_dims.index(length))] = res_exact
+            
+        #except Exception as ex:
+        #        print(ex)
+        #        break
+        
+    multiple_evolutions["init_configs_all"] = multiple_init_configs
+    multiple_evolutions["evs_data_all"] = multiple_evs_data
+    multiple_evolutions["dict_res_proj_ev_all"] = multiple_dict_res_proj_ev
+    multiple_evolutions["res_exact_all"] = multiple_res_exact
+    
+    return multiple_evolutions
