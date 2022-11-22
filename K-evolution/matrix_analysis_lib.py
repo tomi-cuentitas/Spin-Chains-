@@ -422,23 +422,39 @@ def vectorized_recursive_basis(depth_and_ops, Hamiltonian, rho0):
 
 # In [7]:
 
-def exact_v_proj_ev_matrix_metrics_multiple(timespan, range_temps, multiple_evolutions):
+def exact_v_proj_ev_matrix_metrics_multiple(timespan, range_of_temps_or_dims, multiple_evolutions,
+                                            plot_N_fixed_temps_not = False):
     
     z = timespan[:-1]
     bures_Ex_v_Proj_all = {}
     relEntropy_Ex_v_Proj_all = {}
     relEntropy_Proj_v_Ex_all = {}
     
-    for T in range_temps: 
-        rhot_list = multiple_evolutions["dict_res_proj_ev_all"]["dict_res_proj_ev_T" + str(range_temps.index(T))]["State_ev"]
-        sigmat_list = multiple_evolutions["res_exact_all"]["res_exact_T" + str(range_temps.index(T))].states[:-1]
+    if plot_N_fixed_temps_not:   
+        range_dims = range_of_temps_or_dims
+        for dim in range_dims: 
+            rhot_list = multiple_evolutions["dict_res_proj_ev_all"]["dict_res_proj_ev_N" + str(range_dims.index(dim))]["State_ev"]
+            sigmat_list = multiple_evolutions["res_exact_all"]["res_exact_N" + str(range_dims.index(dim))].states[:-1]
         
-        bures_Ex_v_Proj_all["T" + str(range_temps.index(T))] = bures_vectorized(rhot_list = rhot_list,
+            bures_Ex_v_Proj_all["N" + str(range_dims.index(dim))] = bures_vectorized(rhot_list = rhot_list,
+                                                                                      sigmat_list = sigmat_list)
+            local = relative_entropies_vectorized (rhot_list = rhot_list, sigmat_list = sigmat_list)
+            relEntropy_Proj_v_Ex_all["N" + str(range_dims.index(dim))] = local[0]
+            relEntropy_Ex_v_Proj_all["N" + str(range_dims.index(dim))] = local[1]
+            rhot_list = None; sigmat_list = None
+        
+    else:
+        range_temps = range_of_temps_or_dims
+        for T in range_temps: 
+            rhot_list = multiple_evolutions["dict_res_proj_ev_all"]["dict_res_proj_ev_T" + str(range_temps.index(T))]["State_ev"]
+            sigmat_list = multiple_evolutions["res_exact_all"]["res_exact_T" + str(range_temps.index(T))].states[:-1]
+        
+            bures_Ex_v_Proj_all["T" + str(range_temps.index(T))] = bures_vectorized(rhot_list = rhot_list,
                                                                                    sigmat_list = sigmat_list)
-        local = relative_entropies_vectorized (rhot_list = rhot_list, sigmat_list = sigmat_list)
-        relEntropy_Proj_v_Ex_all["T" + str(range_temps.index(T))] = local[0]
-        relEntropy_Ex_v_Proj_all["T" + str(range_temps.index(T))] = local[1]
-        rhot_list = None; sigmat_list = None
+            local = relative_entropies_vectorized (rhot_list = rhot_list, sigmat_list = sigmat_list)
+            relEntropy_Proj_v_Ex_all["T" + str(range_temps.index(T))] = local[0]
+            relEntropy_Ex_v_Proj_all["T" + str(range_temps.index(T))] = local[1]
+            rhot_list = None; sigmat_list = None
     
     return bures_Ex_v_Proj_all, relEntropy_Ex_v_Proj_all, relEntropy_Proj_v_Ex_all
 
