@@ -56,31 +56,42 @@ def plot_exact_v_proj_ev_metrics(ts, metrics, label_metric):
     
 # In [3]:
 
-def plot_exact_v_proj_ev_avgs_multiple(obs, labels, timespan, no_cols_desired,
+def plot_exact_v_proj_ev_avgs_multiple(labels, timespan, no_cols_desired,
                                                     multiple_evolutions,
-                                                    range_temps, 
-                                                    visualize_diff_expt_vals = False):
+                                                    range_of_temps_or_dims, 
+                                                    plot_N_fixed_temps_not = False):
     
-    Tot = len(obs); Cols = no_cols_desired
+    Tot = len(labels); Cols = no_cols_desired
     Rows = Tot // Cols 
     if Tot % Cols != 0:
         Rows += 1
     Position = range(1,Tot + 1)
     z = timespan[:-1]
-    fig = plt.figure(figsize=(24, 14))
-    range_temps_labels = [i for i in range(len(range_temps))]
+    fig = plt.figure(figsize=(25, 16))
+    range_temps_labels = [i for i in range(len(range_of_temps_or_dims))]
     for k in range(Tot):
         ax = fig.add_subplot(Rows, Cols, Position[k])
-        for T in range_temps:
-            ax.plot(z, multiple_evolutions["dict_res_proj_ev_all"]["dict_res_proj_ev_T" + str(range_temps.index(T))]["Avgs"][k],
-                    label = "Proj_ev.T=" + str(T))
-            ax.plot(z, multiple_evolutions["res_exact_all"]["res_exact_T" + str(range_temps.index(T))].expect[k][:-1],
-                    label = "Ex_evT=" + str(T))
+        
+        if plot_N_fixed_temps_not: 
+            range_dims = range_of_temps_or_dims
+            for dim in range_dims: 
+                ax.plot(z, multiple_evolutions["dict_res_proj_ev_all"]["dict_res_proj_ev_N" + str(range_dims.index(dim))]["Avgs"][k],
+                        label = "Proj_ev. N=" + str(dim))
+                ax.plot(z, multiple_evolutions["res_exact_all"]["res_exact_N" + str(range_dims.index(dim))].expect[k][:-1],
+                        label = "Ex_ev. N=" + str(dim))
+        else: 
+            range_temps = range_of_temps_or_dims
+            for T in range_temps:
+                ax.plot(z, multiple_evolutions["dict_res_proj_ev_all"]["dict_res_proj_ev_T" + str(range_temps.index(T))]["Avgs"][k],
+                        label = "Proj_ev. T=" + str(T))
+                ax.plot(z, multiple_evolutions["res_exact_all"]["res_exact_T" + str(range_temps.index(T))].expect[k][:-1],
+                        label = "Ex_ev. T=" + str(T))
         ax.legend(loc=0)
         ax.set_title("Expected values: Proj-ev. v. Exact for " + labels[k])   
     plt.show()
     
-def plot_exact_v_proj_ev_metrics_multiple(timespan, range_temps, metric_local):
+def plot_exact_v_proj_ev_metrics_multiple(timespan, range_of_temps_or_dims, metric_local,
+                                          plot_N_fixed_temps_not = False):
     
     label_metric = ["Bures Exact v. Proj ev", "S(exact || proj_ev)", "S(proj_ev || exact)"]
     Tot = len(label_metric); Cols = 3
@@ -91,9 +102,17 @@ def plot_exact_v_proj_ev_metrics_multiple(timespan, range_temps, metric_local):
     z = timespan[:-1]
     fig = plt.figure(figsize=(10, 5))
     for k in range(Tot):
-        ax = fig.add_subplot(Rows,Cols,Position[k])
-        for T in range_temps:
-            ax.plot(z, metric_local[k]["T"+str(range_temps.index(T))], label = label_metric[k] + " T=" + str(T))
-            ax.legend(loc=0)
-        ax.set_title("Matrix metrics")
+        ax = fig.add_subplot(Rows, Cols, Position[k])
+        if plot_N_fixed_temps_not:
+            range_dims = range_of_temps_or_dims      
+            for dim in range_dims:
+                ax.plot(z, metric_local[k]["N"+str(range_dims.index(dim))], label = label_metric[k] + " N=" + str(dim))
+                ax.legend(loc=0)
+            ax.set_title("Matrix metrics")
+        else: 
+            range_temps = range_of_temps_or_dims      
+            for T in range_temps:
+                ax.plot(z, metric_local[k]["T"+str(range_temps.index(T))], label = label_metric[k] + " T=" + str(T))
+                ax.legend(loc=0)
+            ax.set_title("Matrix metrics")
     plt.show()    
