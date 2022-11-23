@@ -498,3 +498,44 @@ def temp_fixed_multiple_dims_proj_evs(chain_type, Hamiltonian_paras,
     multiple_evolutions["res_exact_all"] = multiple_res_exact
     
     return multiple_evolutions
+
+def increase_depth_multiple_proj_evs(Hamiltonian, rho_ref, range_derived_series_orders, 
+                                     temp_ref, temp_rho,
+                                     generating_operator,
+                                     init_coeff_list,
+                                     timespan, label_ops,
+                                     observables):
+    
+    multiple_evolutions = {}
+    multiple_init_configs = {}; multiple_evs_data = {}; multiple_dict_res_proj_ev = {}; multiple_res_exact = {}
+    
+    for deg_solva in range_derived_series_orders:
+        print("Processing step: ", range_derived_series_orders.index(deg_solva)+1, " and Lie subalgebra of dim ", deg_solva)
+        
+        id_op = qutip.tensor([qutip.qeye(2) for k in Hamiltonian.dims])
+        depth_and_seed_ops = [(1, id_op), 
+                              (1, Hamiltonian), 
+                              (deg_solva+1, generating_operator)]
+        
+        init_configs_MFT_state, evs_data, dict_res_proj_ev, res_exact = d_depth_proj_ev(
+                    temp_ref = temp_ref, temp_rho = temp_rho, 
+                    timespan = timespan, 
+                    Hamiltonian = Hamiltonian, lagrange_op = None,
+                    depth_and_seed_ops = depth_and_seed_ops, observables = observables,
+                    label_ops = label_ops, coeff_list = init_coeff_list[range_derived_series_orders.index(deg_solva)], 
+                    custom_ref_state = rho_ref, 
+                    rho_ref_thermal_state = False, rho_ref_equal_rho0 = False, visualize_H_evs = False, 
+                    visualization_nonherm = False, visualize_expt_vals = False, visualize_diff_expt_vals = False
+                    )
+       
+        multiple_init_configs["init_configs_Liedim" + str(range_derived_series_orders.index(deg_solva)+1)] = init_configs_MFT_state
+        multiple_evs_data["evs_data_Liedim" + str(range_derived_series_orders.index(deg_solva)+1)] = evs_data
+        multiple_dict_res_proj_ev["dict_res_proj_ev_Liedim" + str(range_derived_series_orders.index(deg_solva)+1)] = dict_res_proj_ev
+        multiple_res_exact["res_exact_Liedim" + str(range_derived_series_orders.index(deg_solva)+1)] = res_exact
+                    
+    multiple_evolutions["init_configs_all"] = multiple_init_configs
+    multiple_evolutions["evs_data_all"] = multiple_evs_data
+    multiple_evolutions["dict_res_proj_ev_all"] = multiple_dict_res_proj_ev
+    multiple_evolutions["res_exact_all"] = multiple_res_exact
+    
+    return multiple_evolutions
