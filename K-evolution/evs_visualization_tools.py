@@ -59,7 +59,8 @@ def plot_exact_v_proj_ev_metrics(ts, metrics, label_metric):
 def plot_exact_v_proj_ev_avgs_multiple(labels, timespan, no_cols_desired,
                                                     multiple_evolutions,
                                                     range_of_temps_or_dims, 
-                                                    plot_N_fixed_temps_not = False):
+                                                    plot_N_fixed_temps_not = False,
+                                                    plot_var_liesubalg_dim = False):
     
     Tot = len(labels); Cols = no_cols_desired
     Rows = Tot // Cols 
@@ -79,6 +80,15 @@ def plot_exact_v_proj_ev_avgs_multiple(labels, timespan, no_cols_desired,
                         label = "Proj_ev. N=" + str(dim))
                 ax.plot(z, multiple_evolutions["res_exact_all"]["res_exact_N" + str(range_dims.index(dim))].expect[k][:-1],
                         label = "Ex_ev. N=" + str(dim))
+                
+        if plot_var_liesubalg_dim:
+            range_subalg_dims = range_of_temps_or_dims
+            for dim in range_subalg_dims: 
+                ax.plot(z, multiple_evolutions["dict_res_proj_ev_all"]["dict_res_proj_ev_Liedim" + str(range_subalg_dims.index(dim)+1)]["Avgs"][k],
+                        label = "Proj_ev. s=" + str(dim+1))
+                ax.plot(z, multiple_evolutions["res_exact_all"]["res_exact_Liedim" + str(range_subalg_dims.index(dim)+1)].expect[k][:-1],
+                        label = "Ex_ev. s=" + str(dim+1))
+            
         else: 
             range_temps = range_of_temps_or_dims
             for T in range_temps:
@@ -91,7 +101,8 @@ def plot_exact_v_proj_ev_avgs_multiple(labels, timespan, no_cols_desired,
     plt.show()
     
 def plot_exact_v_proj_ev_metrics_multiple(timespan, range_of_temps_or_dims, metric_local,
-                                          plot_N_fixed_temps_not = False):
+                                          plot_N_fixed_temps_not = False,
+                                          plot_var_liesubalg_dim = False):
     
     label_metric = ["Bures Exact v. Proj ev", "S(exact || proj_ev)", "S(proj_ev || exact)"]
     Tot = len(label_metric); Cols = 3
@@ -103,12 +114,21 @@ def plot_exact_v_proj_ev_metrics_multiple(timespan, range_of_temps_or_dims, metr
     fig = plt.figure(figsize=(10, 5))
     for k in range(Tot):
         ax = fig.add_subplot(Rows, Cols, Position[k])
+        
         if plot_N_fixed_temps_not:
             range_dims = range_of_temps_or_dims      
             for dim in range_dims:
                 ax.plot(z, metric_local[k]["N"+str(range_dims.index(dim))], label = label_metric[k] + " N=" + str(dim))
                 ax.legend(loc=0)
             ax.set_title("Matrix metrics")
+            
+        if plot_var_liesubalg_dim:
+            range_liesubalg_dims = range_of_temps_or_dims      
+            for dim in range_liesubalg_dims:
+                ax.plot(z, metric_local[k]["Liedim"+str(range_liesubalg_dims.index(dim))], label = label_metric[k] + " s=" + str(dim+1))
+                ax.legend(loc=0)
+            ax.set_title("Matrix metrics")            
+        
         else: 
             range_temps = range_of_temps_or_dims      
             for T in range_temps:
