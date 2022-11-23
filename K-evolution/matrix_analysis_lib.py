@@ -423,7 +423,8 @@ def vectorized_recursive_basis(depth_and_ops, Hamiltonian, rho0):
 # In [7]:
 
 def exact_v_proj_ev_matrix_metrics_multiple(timespan, range_of_temps_or_dims, multiple_evolutions,
-                                            plot_N_fixed_temps_not = False):
+                                            plot_N_fixed_temps_not = False,
+                                            plot_var_liesubalg_dim = True):
     
     z = timespan[:-1]
     bures_Ex_v_Proj_all = {}
@@ -441,6 +442,19 @@ def exact_v_proj_ev_matrix_metrics_multiple(timespan, range_of_temps_or_dims, mu
             local = relative_entropies_vectorized (rhot_list = rhot_list, sigmat_list = sigmat_list)
             relEntropy_Proj_v_Ex_all["N" + str(range_dims.index(dim))] = local[0]
             relEntropy_Ex_v_Proj_all["N" + str(range_dims.index(dim))] = local[1]
+            rhot_list = None; sigmat_list = None
+    
+    if plot_var_liesubalg_dim:
+        range_liesubalg_dims = range_of_temps_or_dims
+        for dim in range_liesubalg_dims: 
+            rhot_list = multiple_evolutions["dict_res_proj_ev_all"]["dict_res_proj_ev_Liedim" + str(range_liesubalg_dims.index(dim)+1)] ["State_ev"]
+            sigmat_list = multiple_evolutions["res_exact_all"]["res_exact_Liedim" + str(range_liesubalg_dims.index(dim)+1)].states[:-1]
+        
+            bures_Ex_v_Proj_all["Liedim" + str(range_liesubalg_dims.index(dim))] = bures_vectorized(rhot_list = rhot_list,
+                                                                                      sigmat_list = sigmat_list)
+            local = relative_entropies_vectorized (rhot_list = rhot_list, sigmat_list = sigmat_list)
+            relEntropy_Proj_v_Ex_all["Liedim" + str(range_liesubalg_dims.index(dim))] = local[0]
+            relEntropy_Ex_v_Proj_all["Liedim" + str(range_liesubalg_dims.index(dim))] = local[1]
             rhot_list = None; sigmat_list = None
         
     else:
