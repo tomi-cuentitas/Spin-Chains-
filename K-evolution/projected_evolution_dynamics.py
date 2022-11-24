@@ -198,7 +198,8 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
     ***. a list of tuples of natural numbers and chosen
          operators, from which an incursive basis can be 
          constructed,
-    ***. a chosen set of observables,
+    ***. a chosen set of observables, for which their 
+         expected value's time evolution is desired,
     ***. NO ESTOY SEGURO :(
     ***. (Optional): a boolean option to control whether
                      or not the projected evolution is 
@@ -379,6 +380,8 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
     Gram_matrix = None; rho_ref = None; rho0 = None; basis_orth = None
     Hijtensor = None; phit_list = None; herm_rhot_list = None; res_proj_ev_obs_list = None
     
+    print("4. Evolutions concluded.")
+    
     return initial_configs, evs_data, dict_res_proj_ev, res_exact
 
 def N_fixed_multiple_temps_proj_evs(depth_and_seed_ops, observables, label_ops, 
@@ -388,6 +391,103 @@ def N_fixed_multiple_temps_proj_evs(depth_and_seed_ops, observables, label_ops,
                                     init_coeff_list,
                                     timespan, 
                                     range_temps):
+    
+    """
+    This module performs multiple projected and exact
+    evolutions for different reference temperatures, 
+    at fixed spin chain-length and fixed Lie algebra
+    dimension. This module takes as input:
+    
+        *♥*♥* 1. depth_and_seed_ops: 
+                    a chosen set of operators/endomorphisms.
+                    In our context, this set will be constructed
+                    by taking iterated commutators with the
+                    system's Hamiltonian, yielding a Lie algebra. 
+                    
+        *♥*♥* 2. observables: 
+                    a chosen set of observables, for which their 
+                    expected value's time evolution is desired.
+                    
+        *♥*♥* 3. label_ops: 
+                    a list with strings values, containing the 
+                    observables' physical name. These string 
+                    literals are used for plotting the results.
+                    
+        *♥*♥* 4. ref_operator: 
+                    a hermitian operator, from which a gaussian 
+                    reference state may be constructed, using some 
+                    user-input reference temperatures (see point 8). 
+                    This state is constructed as:
+                         
+                         rho_ref = (-1/temp_ref * ref_operator).expm().
+                    
+        *♥*♥* 5. Hamiltonian:
+                    the system's Hamiltonian. 
+                    
+        *♥*♥* 6. temp_rho: 
+                    a fixed temperature for the system's initial 
+                    state. 
+        
+        *♥*♥* 7. init_coeff_list:
+                    Given an orthonormal basis of operators, this 
+                    list of real numbers provides the initial 
+                    state's decomposition in terms of said basis. 
+                 
+        *♥*♥* 8. timespan:
+                    an array of times for which the time evolution
+                    of the observables is to be calculated.
+                     
+        *♥*♥* 9. range_temps: 
+                     a list of reference temperatures for which the 
+                     different reference operators are constructed, as
+                     thermal-like states, ie.
+                     
+                         rho_ref = (-1/temp_ref * ref_operator).expm()
+                        
+                    For each one of these refrence operators, both the
+                    exact and projected evolutions are computed and returned. 
+                    
+        ====> Returns: multiple_evolutions: a dictionary storing all the 
+                                            evolutions' data. 
+                                            
+             
+        How the algorithm works: For a fixed-length spin chain and fixed
+                                 set of operators, "depth_and_seed_ops" 
+                                -constructed from iterated commutators-, 
+        
+            (i)*. a user-input set of reference temperatures, "range_temps",
+                  is processed. For each one of these temperatures 
+                  
+                  .a: a thermal-like state, 'custom_rho_ref', is constructed 
+                          using the user-input parameter "reference_operator".
+                          A check is performed to confirm whether or not it is
+                          a valid density operator. 
+                          
+                  .b: the projected and exact evolutions are computed, by calling
+                      the d_depth_proj_ev routine, which takes as input (amongst others)
+                      the previous reference state, the system's Hamiltonian, 
+                      the list of observables. 
+                  
+                  .c: these results are then stored in four dictionaries 
+                      (see the graph for a pictoral
+                          representation of the data's structure). 
+                      
+            (ii)*. These steps are made for every desired reference temperature. 
+                   When all of these are processed and their evolutions concluded,
+                   a single dictionary, with the previous four nested dictionaries, 
+                   is returned. 
+       
+       Warnings: (A). This module assumes all user input operator-valued parameters 
+                      are hermitian. 
+                 (B). This module assumes all operators have compatible dimensions 
+                      as well. 
+                 (C). All reference operators undergo a test for determining if these
+                      are density operators of not. Should one of these tests fail,
+                      the module will crash and all date will be lost.                
+                 (D). Numerical stability has been checked upto temperatures of e-2
+                      order. Lower temperatures may have numerical instabilities 
+                      crashing the calculations.          
+    """
     
     
     labels = ["Temp_" + str(i) for i in range(len(range_temps))]
@@ -435,6 +535,97 @@ def temp_fixed_multiple_dims_proj_evs(chain_type, Hamiltonian_paras,
                                       temp_ref, temp_rho, 
                                       init_coeff_list,
                                       timespan, range_dims, ref_operator_type = "Mean_field_state"):
+    
+    """
+    This module performs multiple projected and exact
+    evolutions for different spin chain lengths temperatures, 
+    at fixed (reference and initial) temperatures and fixed 
+    Lie algebra. This module takes as input:
+    
+        *♥*♥* 1. chain_type: 
+                    the desired type of Heisenberg spin chain is chosen. 
+                    In this version, the allowed chain types are:
+                    "XX", "XYZ", "XXZ", "XXX", "Anderson" spin chains.
+        
+        *♥*♥* 2. Hamiltonian_paras: 
+                    the parameters and weights of the different terms
+                    in the Heisenberg Hamiltonian. For further info 
+                    and detail, check the Heisenberg_Hamiltonian module.
+                    
+        *♥*♥* 3. derived_series_op_order:
+                    a natural number indicating how many iterated 
+                    commutators will form part of the Lie basis.
+        
+        *♥*♥* 4. temp_ref: 
+                    a fixed temperature for the system's reference state.
+        
+        *♥*♥* 5. temp_rho: 
+                    a fixed temperature for the system's initial  state.
+                    
+        *♥*♥* 6. init_coeff_list:
+                    Given an orthonormal basis of operators, this 
+                    list of real numbers provides the initial 
+                    state's decomposition in terms of said basis. 
+        
+        *♥*♥* 7. timespan:
+                    an array of times for which the time evolution
+                    of the observables is to be calculated.
+                    
+        *♥*♥* 8. range_dims: 
+                    a list of spin chain lengths. For each of these lenghts, 
+                    both the exact and projected evolutions are computed 
+                    and returned. 
+                    
+        *♥*♥* 9. ref_operator_type:
+                    a string-literal option to control which type of 
+                    thermal-like reference operator is to constructed.
+                    Its default value is Mean_field_state" and the following
+                    reference state is constructed: 
+                    
+                         rho_ref = (- beta_ref * .5 * spin_ops_list[1][0]).expm()
+        
+        ====> Returns: multiple_evolutions: a dictionary storing all the 
+                                            evolutions' data. 
+                                            
+             
+        How the algorithm works: For a fixed type of Heisenberg spin chain and
+                                 fixed set of operators, "depth_and_seed_ops" 
+                                -constructed from iterated commutators-, 
+        
+            (i)*. a user-input set of spin chain lengths, "range_dims",
+                  is processed. For each one of these lengths 
+                  
+                  .a: the systems Hamiltonian is constructed,
+                  
+                  .b: a set of classical operators is constructed as well, 
+                      along with their labels. 
+                      
+                  .c: the projected and exact evolutions are computed, by calling
+                      the d_depth_proj_ev routine, which takes as input (amongst others)
+                      the previous reference state, the system's Hamiltonian, 
+                      the list of observables. 
+                  
+                  .d: these results are then stored in four dictionaries 
+                      (see the graph for a pictoral
+                          representation of the data's structure). 
+                      
+            (ii)*. These steps are made for every desired chain length. 
+                   When all of these are processed and their evolutions concluded,
+                   a single dictionary, with the previous four nested dictionaries, 
+                   is returned. 
+       
+       Warnings: (A). This module assumes all user-input operator-valued parameters 
+                      are hermitian. 
+                 (B). This module assumes all operators have compatible dimensions 
+                      as well. s
+                 (C). All reference operators undergo a test for determining if these
+                      are density operators of not. Should one of these tests fail,
+                      the routine will crash and all previously gathered data will be lost.                
+                 (D). Numerical stability has been checked upto temperatures of e-2
+                      order and chain size of 10 spins. 
+                      Lower temperatures and higher spin chain lengths may have numerical instabilities 
+                      crashing the calculations.          
+    """
 
     labels = ["dim_" + str(i) for i in range(len(range_dims))]
     multiple_evolutions = {}
@@ -460,7 +651,7 @@ def temp_fixed_multiple_dims_proj_evs(chain_type, Hamiltonian_paras,
             beta_ref = (1/temp_ref)
             if ref_operator_type == "Mean_field_state":
                 
-                depth_and_seed_ops = [(1, cl_ops["identity_op"]), 
+                depth_and_seed_ops = [(1, cl_ops["identitys_op"]), 
                       (1, Hamiltonian), 
                       (derived_series_op_order, spin_ops_list[1][0]),
                       ]
@@ -506,13 +697,110 @@ def increase_depth_multiple_proj_evs(Hamiltonian, rho_ref, range_derived_series_
                                      timespan, label_ops,
                                      observables):
     
+    """
+    This module performs multiple projected and exact
+    evolutions for different reference temperatures, 
+    at fixed spin chain-length and fixed Lie algebra
+    dimension. This module takes as input:
+    
+        *♥*♥* 1. depth_and_seed_ops: 
+                    a chosen set of operators/endomorphisms.
+                    In our context, this set will be constructed
+                    by taking iterated commutators with the
+                    system's Hamiltonian, yielding a Lie algebra. 
+                    
+        *♥*♥* 2. observables: 
+                    a chosen set of observables, for which their 
+                    expected value's time evolution is desired.
+                    
+        *♥*♥* 3. label_ops: 
+                    a list with strings values, containing the 
+                    observables' physical name. These string 
+                    literals are used for plotting the results.
+                    
+        *♥*♥* 4. ref_operator: 
+                    a hermitian operator, from which a gaussian 
+                    reference state may be constructed, using some 
+                    user-input reference temperatures (see point 8). 
+                    This state is constructed as:
+                         
+                         rho_ref = (-1/temp_ref * ref_operator).expm().
+                    
+        *♥*♥* 5. Hamiltonian:
+                    the system's Hamiltonian. 
+                    
+        *♥*♥* 6. temp_rho: 
+                    a fixed temperature for the system's initial 
+                    state. 
+        
+        *♥*♥* 7. init_coeff_list:
+                    Given an orthonormal basis of operators, this 
+                    list of real numbers provides the initial 
+                    state's decomposition in terms of said basis. 
+                 
+        *♥*♥* 8. timespan:
+                    an array of times for which the time evolution
+                    of the observables is to be calculated.
+                     
+        *♥*♥* 9. range_temps: 
+                     a list of reference temperatures for which the 
+                     different reference operators are constructed, as
+                     thermal-like states, ie.
+                     
+                         rho_ref = (-1/temp_ref * ref_operator).expm()
+                        
+                    For each one of these refrence operators, both the
+                    exact and projected evolutions are computed and returned. 
+                    
+        ====> Returns: multiple_evolutions: a dictionary storing all the 
+                                            evolutions' data. 
+                                            
+             
+        How the algorithm works: For a fixed-length spin chain and fixed
+                                 set of operators, "depth_and_seed_ops" 
+                                -constructed from iterated commutators-, 
+        
+            (i)*. a user-input set of reference temperatures, "range_temps",
+                  is processed. For each one of these temperatures 
+                  
+                  .a: a thermal-like state, 'custom_rho_ref', is constructed 
+                          using the user-input parameter "reference_operator".
+                          A check is performed to confirm whether or not it is
+                          a valid density operator. 
+                          
+                  .b: the projected and exact evolutions are computed, by calling
+                      the d_depth_proj_ev routine, which takes as input (amongst others)
+                      the previous reference state, the system's Hamiltonian, 
+                      the list of observables. 
+                  
+                  .c: these results are then stored in four dictionaries 
+                      (see the graph for a pictoral
+                          representation of the data's structure). 
+                      
+            (ii)*. These steps are made for every desired reference temperature. 
+                   When all of these are processed and their evolutions concluded,
+                   a single dictionary, with the previous four nested dictionaries, 
+                   is returned. 
+       
+       Warnings: (A). This module assumes all user input operator-valued parameters 
+                      are hermitian. 
+                 (B). This module assumes all operators have compatible dimensions 
+                      as well. 
+                 (C). All reference operators undergo a test for determining if these
+                      are density operators of not. Should one of these tests fail,
+                      the module will crash and all date will be lost.                
+                 (D). Numerical stability has been checked upto temperatures of e-2
+                      order. Lower temperatures may have numerical instabilities 
+                      crashing the calculations.          
+    """
+    
     multiple_evolutions = {}
     multiple_init_configs = {}; multiple_evs_data = {}; multiple_dict_res_proj_ev = {}; multiple_res_exact = {}
     
     for deg_solva in range_derived_series_orders:
         print("Processing step: ", range_derived_series_orders.index(deg_solva)+1, " and Lie subalgebra of dim ", deg_solva)
         
-        id_op = qutip.tensor([qutip.qeye(2) for k in Hamiltonian.dims])
+        id_op = qutip.tensor([qutip.qeye(2) for k in (Hamiltonian.dims[0])])
         depth_and_seed_ops = [(1, id_op), 
                               (1, Hamiltonian), 
                               (deg_solva+1, generating_operator)]
