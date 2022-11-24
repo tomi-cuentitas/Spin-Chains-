@@ -651,7 +651,7 @@ def temp_fixed_multiple_dims_proj_evs(chain_type, Hamiltonian_paras,
             beta_ref = (1/temp_ref)
             if ref_operator_type == "Mean_field_state":
                 
-                depth_and_seed_ops = [(1, cl_ops["identitys_op"]), 
+                depth_and_seed_ops = [(1, cl_ops["identity_op"]), 
                       (1, Hamiltonian), 
                       (derived_series_op_order, spin_ops_list[1][0]),
                       ]
