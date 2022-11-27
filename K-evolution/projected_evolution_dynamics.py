@@ -455,7 +455,7 @@ def N_fixed_multiple_temps_proj_evs(depth_and_seed_ops, observables, label_ops,
                                  set of operators, "depth_and_seed_ops" 
                                 -constructed from iterated commutators-, 
         
-            (i)*. a user-input set of reference temperatures, "range_temps",
+            (i)*. a user-input set of reference temperatures, *range_temps*,
                   is processed. For each one of these temperatures 
                   
                   .a: a thermal-like state, 'custom_rho_ref', is constructed 
