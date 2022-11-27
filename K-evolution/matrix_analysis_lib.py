@@ -423,15 +423,19 @@ def vectorized_recursive_basis(depth_and_ops, Hamiltonian, rho0):
 # In [7]:
 
 def exact_v_proj_ev_matrix_metrics_multiple(timespan, range_of_temps_or_dims, multiple_evolutions,
-                                            plot_N_fixed_temps_not = False,
-                                            plot_var_liesubalg_dim = True):
+                                              plot_var_lengths = False,
+                                              plot_var_liesubalg_dim = False,
+                                              plot_var_temps = False):
     
     z = timespan[:-1]
     bures_Ex_v_Proj_all = {}
     relEntropy_Ex_v_Proj_all = {}
     relEntropy_Proj_v_Ex_all = {}
     
-    if plot_N_fixed_temps_not:   
+    if (plot_var_lengths== False) and (plot_var_liesubalg_dim == False) and (plot_var_temps == False):
+            print("No visualization choice taken")
+    
+    if plot_var_lengths:   
         range_dims = range_of_temps_or_dims
         for dim in range_dims: 
             rhot_list = multiple_evolutions["dict_res_proj_ev_all"]["dict_res_proj_ev_N" + str(range_dims.index(dim))]["State_ev"]
@@ -457,7 +461,7 @@ def exact_v_proj_ev_matrix_metrics_multiple(timespan, range_of_temps_or_dims, mu
             relEntropy_Ex_v_Proj_all["Liedim" + str(range_liesubalg_dims.index(dim))] = local[1]
             rhot_list = None; sigmat_list = None
         
-    else:
+    if plot_var_temps: 
         range_temps = range_of_temps_or_dims
         for T in range_temps: 
             rhot_list = multiple_evolutions["dict_res_proj_ev_all"]["dict_res_proj_ev_T" + str(range_temps.index(T))]["State_ev"]
