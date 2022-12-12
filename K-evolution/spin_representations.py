@@ -104,39 +104,37 @@ def all_upto_two_body_spin_ops(op_list, size):
     two_body_s = [sxsa_list, sysa_list, szsa_list]
     return two_body_s
 
-def two_body_spin_ops(op_list, size, build_all = False):
-    """
-    This module is redundant in its current form. 
-    It basically either constructs all two-body 
-    correlators or some subset of these. 
-    """
-    loc_list = []
-    if build_all:
-        loc_list = all_two_body_spin_ops(op_list, N)
-    else: 
-        globalid_list, sx_list, sy_list, sz_list = op_list       
-        loc_sxsx = []; loc_sysy = []; loc_szsz = [];
-        
-        loc_sxsx = [sx_list[n] * sx_list[m] for n in range(size)
-                                            for m in range(size)]
-        loc_sysy = [sy_list[n] * sy_list[m] for n in range(size)
-                                            for m in range(size)]
-        loc_szsz = [sz_list[n] * sz_list[m] for n in range(size)
-                                            for m in range(size)]
-        loc_list.append(loc_sxsx)
-        loc_list.append(loc_sysy)
-        loc_list.append(loc_szsz)
-    return loc_list
-
 # In [3]: 
 
 def Heisenberg_Hamiltonian(op_list, chain_type, size, Hamiltonian_paras, closed_bcs = True, visualization = False):
     """
-    This module constructs the Heisenberg Hamiltonian for
-    different types of systems, according to some 
-    user-inputed parameters. 
+    This module constructs different types of nearest-neighbour
+    Heisenberg-like spin chains, using a list of local [see Warnings and Remarks] spin operators.
+    This module takes as input the following parameters:
+    
+        *♥*♥* 1. op_list: a list of hermitian local [see Warnings and Remarks further below] spin operators.
+        *♥*♥* 2. chain_type: a string literal indicating which type of spin chain Hamiltonian
+                             is to be constructed. 
+        *♥*♥* 3. Size: the total number of lattice sites in the spin chain.
+        *♥*♥* 4. Hamiltonian_paras: a list of four real-valued numbers Jx, Jy, Jz and h -in that order-,
+                                    indicating the weights associated with each term in the chosen spin chain,
+                                    where h is an external classical magnetic field.
+        *♥*♥* 5. closed_bcs: boolean parameter, default value = True. 
+                             If a spin chain has more than two lattice sites, the spin chain can be made
+                             translationally invariant by adding an extra term corresponding to the N-th site's interaction
+                             with the first site. 
+        *♥*♥* 6. visualization: boolean parameter, default value = False.
+                                Toggling this option will output a Hinton diagram of the Hamiltonian 
+                                
+        ====> Returns: the system's Hamiltonian.
+        Warnings and Remarks: a. by "local spin operators", it is understood that these spin operators act on the global
+                                 Hilbert space, having already been written in terms of tensor products. These spin operators
+                                 act non-trivially only on a single lattice site, and act as an identity operator otherwise.
+                              b. If a spin chain is chosen to be, eg., an XX chain, only the 
+                                 first and fourth parameters will be use, the others will be ignored.
+        
     """
-    spin_chain_type = ["XX", "XYZ", "XXZ", "XXX", "Anderson"]
+    spin_chain_type = ["XX", "XY", "XYZ", "XXZ", "XXX", "Anderson"]
     loc_globalid_list, sx_list, sy_list, sz_list = op_list       
           
     H = 0; N = size
@@ -149,7 +147,15 @@ def Heisenberg_Hamiltonian(op_list, chain_type, size, Hamiltonian_paras, closed_
             H += sum(-.5* Jx *(sx_list[n]*sx_list[n+1] 
                                  + sy_list[n]*sy_list[n+1]) for n in range(N-1))
             if closed_bcs and N>2: 
-                H -= .5* Jx *(sx_list[N-1]*sx_list[0] + sy_list[N-1]*sy_list[0])
+                H += .5* Jx *(sx_list[N-1]*sx_list[0] + sy_list[N-1]*sy_list[0])
+        
+        if (chain_type == "XY"):
+            H += sum(-.5* Jx* sx_list[n]*sx_list[n+1] 
+                       -.5* Jy * sy_list[n]*sy_list[n+1] for n in range(N-1))
+            
+            if closed_bcs and N>2:
+                H +-= -.5* Jx* sx_list[N-1]*sx_list[0] 
+                       -.5* Jy * sy_list[N-1]*sy_list[0]
             
         elif (chain_type == "XXX"):
             H += sum(-.5* Jx * (sx_list[n]*sx_list[n+1] 
@@ -190,6 +196,61 @@ def Heisenberg_Hamiltonian(op_list, chain_type, size, Hamiltonian_paras, closed_
     assert mat_ansys.non_hermitianess_measure(H) < 1e-10, "Non-hermitian Hamiltonian obtained" 
     return H
 
+# In [4]:
+        
+def classical_ops(Hamiltonian, N, op_list, centered_x_op = False):
+    
+    identity_op = op_list[0][0]; sz_list = op_list[3]    
+    labels = ["identity_op", "x_op", "p_op", "n_oc_op", "comm_xp", "corr_xp", "p_dot", "n_oc_disp"]
+    
+    cl_ops = {"identity_op": identity_op}
+    if centered_x_op:
+        cl_ops["x_op"] = sum((.5 + sz_list[k])*(k+1) for k in range(len(sz_list)))
+    else:
+        cl_ops["x_op"] = sum((k-N/2)*(sz_list[k] + .5 * identity_op) for k in range(len(sz_list)-1)) 
+        
+    cl_ops["p_op"] = 1j * mat_ansys.commutator(cl_ops["x_op"], Hamiltonian)
+    cl_ops["n_oc_op"] = sum([sz_list[k] + .5 * identity_op for k in range(len(sz_list)-1)])
+    cl_ops["comm_xp"] = .5 * mat_ansys.anticommutator(cl_ops["x_op"], cl_ops["p_op"])
+    cl_ops["corr_xp"] = -1j * mat_ansys.commutator(cl_ops["x_op"], cl_ops["p_op"])
+    cl_ops["p_dot"] = 1j * mat_ansys.commutator(Hamiltonian, cl_ops["p_op"])
+    cl_ops["n_oc_disp"] = (cl_ops["n_oc_op"]-1.)**2
+    
+    for i in range(len(labels)):
+        if qutip.isherm(cl_ops[labels[i]]):
+            pass
+        else:
+            print(labels[i], "not hermitian")
+    return cl_ops, labels
+
+#### Legacy ####
+
+# In [-1]:
+
+def two_body_spin_ops(op_list, size, build_all = False):
+    """
+    This module is redundant in its current form. 
+    It basically either constructs all two-body 
+    correlators or some subset of these. 
+    """
+    loc_list = []
+    if build_all:
+        loc_list = all_two_body_spin_ops(op_list, N)
+    else: 
+        globalid_list, sx_list, sy_list, sz_list = op_list       
+        loc_sxsx = []; loc_sysy = []; loc_szsz = [];
+        
+        loc_sxsx = [sx_list[n] * sx_list[m] for n in range(size)
+                                            for m in range(size)]
+        loc_sysy = [sy_list[n] * sy_list[m] for n in range(size)
+                                            for m in range(size)]
+        loc_szsz = [sz_list[n] * sz_list[m] for n in range(size)
+                                            for m in range(size)]
+        loc_list.append(loc_sxsx)
+        loc_list.append(loc_sysy)
+        loc_list.append(loc_szsz)
+    return loc_list
+
 def Heisenberg_Hamiltonian_tests(spin_ops_list, N):
     start_time = time.time()
     Hamiltonian_paras = [.2, .15, .1, 1.]
@@ -217,30 +278,3 @@ def Heisenberg_Hamiltonian_tests(spin_ops_list, N):
         print("All Hamiltonians are correct")
     print("--- Test concluded in: %s seconds ---" % (time.time() - start_time))
     return all_hamiltonians_are_hermitian
-
-# In [4]:
-        
-def classical_ops(Hamiltonian, N, op_list, centered_x_op = False):
-    
-    identity_op = op_list[0][0]; sz_list = op_list[3]    
-    labels = ["identity_op", "x_op", "p_op", "n_oc_op", "comm_xp", "corr_xp", "p_dot", "n_oc_disp"]
-    
-    cl_ops = {"identity_op": identity_op}
-    if centered_x_op:
-        cl_ops["x_op"] = sum((.5 + sz_list[k])*(k+1) for k in range(len(sz_list)))
-    else:
-        cl_ops["x_op"] = sum((k-N/2)*(sz_list[k] + .5 * identity_op) for k in range(len(sz_list)-1)) 
-        
-    cl_ops["p_op"] = 1j * mat_ansys.commutator(cl_ops["x_op"], Hamiltonian)
-    cl_ops["n_oc_op"] = sum([sz_list[k] + .5 * identity_op for k in range(len(sz_list)-1)])
-    cl_ops["comm_xp"] = .5 * mat_ansys.anticommutator(cl_ops["x_op"], cl_ops["p_op"])
-    cl_ops["corr_xp"] = -1j * mat_ansys.commutator(cl_ops["x_op"], cl_ops["p_op"])
-    cl_ops["p_dot"] = 1j * mat_ansys.commutator(Hamiltonian, cl_ops["p_op"])
-    cl_ops["n_oc_disp"] = (cl_ops["n_oc_op"]-1.)**2
-    
-    for i in range(len(labels)):
-        if qutip.isherm(cl_ops[labels[i]]):
-            pass
-        else:
-            print(labels[i], "not hermitian")
-    return cl_ops, labels
