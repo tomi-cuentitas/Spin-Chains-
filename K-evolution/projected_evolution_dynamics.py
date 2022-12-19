@@ -44,7 +44,8 @@ def H_ij_matrix(Hamiltonian, basis, rho0, sc_prod):
     coeffs_matrix = np.array([[sc_prod(op1, -1j * mat_ansys.commutator(Hamiltonian, op2), rho0) for op2 in basis] for op1 in basis])
     return coeffs_matrix
 
-def basis_orthonormality_check(basis, rho0, sc_prod, visualization_Gram_m = False): 
+def basis_orthonormality_check(basis, rho0, sc_prod, visualization_Gram_m = False,
+                                                     title_format_dprojev = True): 
     dim = len(basis)
     hermitian_basis = [mat_ansys.non_hermitianess_measure(op1) <= 1e-10 for op1 in basis]
     assert np.all(hermitian_basis), ("Not all the operators are "
@@ -56,7 +57,11 @@ def basis_orthonormality_check(basis, rho0, sc_prod, visualization_Gram_m = Fals
                              f"{normalized}")
 
     assert (linalg.norm((np.identity(dim) - gram_matrix) <= 1e-10)), "Not all operators are pair-wise orthogonal"
-    print("The basis is orthonormal and hermitian")
+    
+    if title_format_dprojev:
+        print("    |▼| 3. Check passed: the basis is orthonormal and hermitian")
+    else: 
+        print("The basis is orthonormal and hermitian")
 
     null_averages = [np.real((rho0 * op1).tr()) <= 1e-6 for op1 in basis]
     assert all(null_averages[1:]), ("Some operators do not have a null average:\n" 
@@ -180,6 +185,7 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
                     custom_ref_state = None, 
                     rho_ref_thermal_state = False, 
                     rho_ref_equal_rho0 = False, 
+                    compute_exact_dynamics = True,
                     visualize_H_evs = False, 
                     visualization_nonherm = False, 
                     visualize_expt_vals = True, 
@@ -275,10 +281,10 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
     ### building reference states and testing it
     
     start_time_proj_ev = time.time()
-    print("1. Processing reference state ===>")
+    print("    |▼| 1. Processing reference state ===>")
     if custom_ref_state is None:
         if rho_ref_thermal_state:
-            print("    ^^##. thermal reference state chosen")
+            print("              a. ^^##^^. thermal reference state chosen")
             beta_ref = 1/temp_ref
             K_ref = beta_ref * Hamiltonian 
             rho_ref = (K_ref).expm()
@@ -286,13 +292,13 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
             assert mat_ansys.is_density_op(rho_ref), "reference state not a density op"
         
         else:
-            print("    ^^##. thermal reference state with Lagrange multiplier chosen")
+            print("              b. ^^##. thermal reference state with Lagrange multiplier chosen")
             K_ref, rho_ref = build_reference_state(temp = temp_ref, 
                                                    Hamiltonian = Hamiltonian,
                                                    lagrange_op = lagrange_op, 
                                                    lagrange_mult = .5)
     else:
-        print("    ^^##. custom reference state chosen")
+        print("                  c. ^^##. custom reference state chosen")
         rho_ref = custom_ref_state
     
     basis_incursive = mat_ansys.vectorized_recursive_basis(depth_and_ops=depth_and_seed_ops,                                             
@@ -303,8 +309,8 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
                            rho0 = rho_ref, 
                            sc_prod = mat_ansys.HS_inner_prod_r, 
                            visualization = False, reinforce_reality=False)   
-    print("2. using a base of size ", len(basis_orth))
-    print("3. rho_ref: ", rho_ref)
+    print("    |▼| 2. using a base of size ", len(basis_orth))
+    #print("    |▼| 3. rho_ref: ", rho_ref)
     
         ### test 
     Gram_matrix = basis_orthonormality_check(basis = basis_orth, 
@@ -316,10 +322,10 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
     loc_coeff_list = coeff_list
     
     if rho_ref_equal_rho0: 
-        print("3. using rho0 = rho_ref")
+        print("    |▼| 4a. using rho0 = rho_ref")
         phi0 = loc_coeff_list; rho0 = rho_ref    
     else: 
-        print("3. constructing rho0 from the coeff. list and orth. basis")
+        print("    |▼| 4b. constructing rho0 from the coeff. list and orth. basis")
         phi0, rho0 = build_rho0_from_basis(coeff_list = loc_coeff_list, basis = basis_orth, temp=temp_rho)
         
     Hijtensor = H_ij_matrix(Hamiltonian = Hamiltonian,
@@ -380,7 +386,7 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
     Gram_matrix = None; rho_ref = None; rho0 = None; basis_orth = None
     Hijtensor = None; phit_list = None; herm_rhot_list = None; res_proj_ev_obs_list = None
     
-    print("4. Evolutions concluded.")
+    print("    |▼| 5. Evolution concluded. \n")
     
     return initial_configs, evs_data, dict_res_proj_ev, res_exact
 
@@ -538,9 +544,9 @@ def temp_fixed_multiple_dims_proj_evs(chain_type, Hamiltonian_paras,
     
     """
     This module performs multiple projected and exact
-    evolutions for different spin chain lengths temperatures, 
+    evolutions for different spin chain lengths, 
     at fixed (reference and initial) temperatures and fixed 
-    Lie algebra. This module takes as input:
+    hierarchical basis. This module takes as input:
     
         *♥*♥* 1. chain_type: 
                     the desired type of Heisenberg spin chain is chosen. 
@@ -698,10 +704,10 @@ def increase_depth_multiple_proj_evs(Hamiltonian, rho_ref, range_derived_series_
                                      observables):
     
     """
-    This module performs multiple projected and exact
-    evolutions for different reference temperatures, 
-    at fixed spin chain-length and fixed Lie algebra
-    dimension. This module takes as input:
+    This module performs multiple projected and exact 
+    evolutions for different reference hierarchical basis cardinality, 
+    at fixed spin chain length and fixed reference temperature, 
+    by adding one element at a time in said basis. This module takes as input:
     
         *♥*♥* 1. depth_and_seed_ops: 
                     a chosen set of operators/endomorphisms.
@@ -798,7 +804,7 @@ def increase_depth_multiple_proj_evs(Hamiltonian, rho_ref, range_derived_series_
     multiple_init_configs = {}; multiple_evs_data = {}; multiple_dict_res_proj_ev = {}; multiple_res_exact = {}
     
     for deg_solva in range_derived_series_orders:
-        print("Processing step: ", range_derived_series_orders.index(deg_solva)+1, " and Lie subalgebra of dim ", deg_solva)
+        print("Processing step: ", range_derived_series_orders.index(deg_solva)+1, " and hierarchical basis of dim ", deg_solva)
         
         id_op = qutip.tensor([qutip.qeye(2) for k in (Hamiltonian.dims[0])])
         depth_and_seed_ops = [(1, id_op), 
