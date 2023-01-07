@@ -150,12 +150,12 @@ def Heisenberg_Hamiltonian(op_list, chain_type, size, Hamiltonian_paras, closed_
                 H += .5* Jx *(sx_list[N-1]*sx_list[0] + sy_list[N-1]*sy_list[0])
         
         if (chain_type == "XY"):
+            Jy = Hamiltonian_paras[1] * 2 * np.pi #* np.ones(N)
             H += sum(-.5* Jx* sx_list[n]*sx_list[n+1] 
                        -.5* Jy * sy_list[n]*sy_list[n+1] for n in range(N-1))
             
             if closed_bcs and N>2:
-                H +-= -.5* Jx* sx_list[N-1]*sx_list[0] 
-                       -.5* Jy * sy_list[N-1]*sy_list[0]
+                H += -.5* Jx* sx_list[N-1]*sx_list[0] -.5* Jy * sy_list[N-1]*sy_list[0]
             
         elif (chain_type == "XXX"):
             H += sum(-.5* Jx * (sx_list[n]*sx_list[n+1] 
