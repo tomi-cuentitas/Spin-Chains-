@@ -424,7 +424,7 @@ def vectorized_recursive_basis(depth_and_ops, Hamiltonian, rho0):
 
 def exact_v_proj_ev_matrix_metrics_multiple(timespan, range_of_temps_or_dims, multiple_evolutions,
                                               plot_var_lengths = False,
-                                              plot_var_liesubalg_dim = False,
+                                              plot_var_HierarchBases_dim = False,
                                               plot_var_temps = False):
     
     z = timespan[:-1]
@@ -432,7 +432,7 @@ def exact_v_proj_ev_matrix_metrics_multiple(timespan, range_of_temps_or_dims, mu
     relEntropy_Ex_v_Proj_all = {}
     relEntropy_Proj_v_Ex_all = {}
     
-    if (plot_var_lengths== False) and (plot_var_liesubalg_dim == False) and (plot_var_temps == False):
+    if (plot_var_lengths== False) and (plot_var_HierarchBases_dim == False) and (plot_var_temps == False):
             print("No visualization choice taken")
     
     if plot_var_lengths:   
@@ -447,19 +447,31 @@ def exact_v_proj_ev_matrix_metrics_multiple(timespan, range_of_temps_or_dims, mu
             relEntropy_Proj_v_Ex_all["N" + str(range_dims.index(dim))] = local[0]
             relEntropy_Ex_v_Proj_all["N" + str(range_dims.index(dim))] = local[1]
             rhot_list = None; sigmat_list = None
-    
-    if plot_var_liesubalg_dim:
-        range_liesubalg_dims = range_of_temps_or_dims
-        for dim in range_liesubalg_dims: 
-            rhot_list = multiple_evolutions["dict_res_proj_ev_all"]["dict_res_proj_ev_Liedim" + str(range_liesubalg_dims.index(dim)+1)] ["State_ev"]
-            sigmat_list = multiple_evolutions["res_exact_all"]["res_exact_Liedim" + str(range_liesubalg_dims.index(dim)+1)].states[:-1]
         
-            bures_Ex_v_Proj_all["Liedim" + str(range_liesubalg_dims.index(dim))] = bures_vectorized(rhot_list = rhot_list,
+    if plot_var_HierarchBases_dim:
+        
+        range_HB_dims = range_of_temps_or_dims
+        ### The list is searched twice. First, to identify and extract the data from the exact evolution via sigmat_list.
+        ### And then to actually compute the metrics of a particular ProjEv with the exact evolution data. 
+        
+        for dim in range_HB_dims: 
+            res_exact_loc = multiple_evolutions["res_exact_all"]["res_exact_HierarchBases" + str(range_HB_dims.index(dim)+1)]
+            if res_exact_loc is None:
+                pass
+            else: 
+                sigmat_list = res_exact_loc.states[:-1]
+        
+        for dim in range_HB_dims: 
+            rhot_list = multiple_evolutions["dict_res_proj_ev_all"]["dict_res_proj_ev_HierarchBases" + str(range_HB_dims.index(dim)+1)]["State_ev"]
+            sigmat_list = res_exact_loc.states[:-1] ### acá hay un bug raro, si no pongo esta línea nuevamente, se borra sigmat_list y
+                                                    ### queda en None. Así funciona. 
+            
+            bures_Ex_v_Proj_all["HierarchBases" + str(range_HB_dims.index(dim))] = bures_vectorized(rhot_list = rhot_list,
                                                                                       sigmat_list = sigmat_list)
             local = relative_entropies_vectorized (rhot_list = rhot_list, sigmat_list = sigmat_list)
-            relEntropy_Proj_v_Ex_all["Liedim" + str(range_liesubalg_dims.index(dim))] = local[0]
-            relEntropy_Ex_v_Proj_all["Liedim" + str(range_liesubalg_dims.index(dim))] = local[1]
-            rhot_list = None; sigmat_list = None
+            relEntropy_Proj_v_Ex_all["HierarchBases" + str(range_HB_dims.index(dim))] = local[0]
+            relEntropy_Ex_v_Proj_all["HierarchBases" + str(range_HB_dims.index(dim))] = local[1]
+            rhot_list = None; sigmat_list = None; 
         
     if plot_var_temps: 
         range_temps = range_of_temps_or_dims
