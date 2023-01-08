@@ -58,19 +58,19 @@ def plot_exact_v_proj_ev_metrics(ts, metrics, label_metric):
 
 def plot_exact_v_proj_ev_avgs_multiple(labels, timespan, no_cols_desired,
                                                     multiple_evolutions,
-                                                    range_of_temps_or_dims, 
+                                                    range_of_temps_or_dims,
                                                     plot_var_lengths = False,
-                                                    plot_var_liesubalg_dim = False,
+                                                    plot_var_HierarchBases_dim = False,
                                                     plot_var_temps = False):
     
-    if (plot_var_lengths== False) and (plot_var_liesubalg_dim == False) and (plot_var_temps == False):
+    if (plot_var_lengths== False) and (plot_var_HierarchBases_dim == False) and (plot_var_temps == False):
             print("No visualization choice taken")
             
     title = "avgs_ev_proj_ev"
     if plot_var_lengths:
         title += "_var_lengths"
-    if plot_var_liesubalg_dim:
-        title += "_var_liealgdims"
+    if plot_var_HierarchBases_dim:
+        title += "_var_HierarchBases"
     if plot_var_temps: 
         title += "_var_temps"
     
@@ -85,10 +85,10 @@ def plot_exact_v_proj_ev_avgs_multiple(labels, timespan, no_cols_desired,
     for k in range(Tot):
         ax = fig.add_subplot(Rows, Cols, Position[k])
         
-        if (plot_var_lengths== False) and (plot_var_liesubalg_dim == False) and (plot_var_temps == False):
+        if (plot_var_lengths== False) and (plot_var_HierarchBases_dim == False) and (plot_var_temps == False):
             print("No visualization choice taken")
         
-        if plot_var_lengths: 
+        if plot_var_lengths and all_exact_dynamics_processed: 
             range_dims = range_of_temps_or_dims
             for dim in range_dims: 
                 ax.plot(z, multiple_evolutions["dict_res_proj_ev_all"]["dict_res_proj_ev_N" + str(range_dims.index(dim))]["Avgs"][k],
@@ -96,15 +96,18 @@ def plot_exact_v_proj_ev_avgs_multiple(labels, timespan, no_cols_desired,
                 ax.plot(z, multiple_evolutions["res_exact_all"]["res_exact_N" + str(range_dims.index(dim))].expect[k][:-1],
                         label = "Ex_ev. N=" + str(dim))
                 
-        if plot_var_liesubalg_dim:
-            range_subalg_dims = range_of_temps_or_dims
-            for dim in range_subalg_dims: 
-                ax.plot(z, multiple_evolutions["dict_res_proj_ev_all"]["dict_res_proj_ev_Liedim" + str(range_subalg_dims.index(dim)+1)]["Avgs"][k],
-                        label = "Proj_ev. s=" + str(dim+1))
-                ax.plot(z, multiple_evolutions["res_exact_all"]["res_exact_Liedim" + str(range_subalg_dims.index(dim)+1)].expect[k][:-1],
-                        label = "Ex_ev. s=" + str(dim+1))
+        if plot_var_HierarchBases_dim:
+            range_HB_dims = range_of_temps_or_dims
+            for dim in range_HB_dims: 
+                ax.plot(z, multiple_evolutions["dict_res_proj_ev_all"]["dict_res_proj_ev_HierarchBases" + str(range_HB_dims.index(dim)+1)]["Avgs"][k], label = "Proj_ev. s=" + str(dim+1))
+                var_loc = multiple_evolutions["res_exact_all"]["res_exact_HierarchBases" + str(range_HB_dims.index(dim)+1)]
+                if var_loc is None:
+                    pass
+                else: 
+                    ax.plot(z, var_loc.expect[k][:-1], label = "Exact Evolution")
+                var_loc = None
             
-        if plot_var_temps: 
+        if plot_var_temps and all_exact_dynamics_processed: 
             range_temps = range_of_temps_or_dims
             for T in range_temps:
                 ax.plot(z, multiple_evolutions["dict_res_proj_ev_all"]["dict_res_proj_ev_T" + str(range_temps.index(T))]["Avgs"][k],
@@ -115,21 +118,23 @@ def plot_exact_v_proj_ev_avgs_multiple(labels, timespan, no_cols_desired,
         ax.legend(loc=0)
         ax.set_title("Expected values: Proj-ev. v. Exact for " + labels[k])   
     
+    save_results_to = 'C:/Users/tomas/PhD Physics/1st Year/Spin Chains/System of diff eqs/Rewriting Dependencies/results_figs/'
+    plt.savefig(save_results_to + title + f"_processed={len(range_of_temps_or_dims)}_items.svg")
     plt.show()
     
 def plot_exact_v_proj_ev_metrics_multiple(timespan, range_of_temps_or_dims, metric_local,
                                           plot_var_lengths = False,
-                                          plot_var_liesubalg_dim = False,
+                                          plot_var_HierarchBases_dim = False,
                                           plot_var_temps = False):
     
-    if (plot_var_lengths== False) and (plot_var_liesubalg_dim == False) and (plot_var_temps == False):
+    if (plot_var_lengths== False) and (plot_var_HierarchBases_dim == False) and (plot_var_temps == False):
             print("No visualization choice taken")
             
     title = "metrics_proj_ev"
     if plot_var_lengths:
         title += "_var_lengths"
-    if plot_var_liesubalg_dim:
-        title += "_var_liealgdims"
+    if plot_var_HierarchBases_dim:
+        title += "_var_HierarchBases"
     if plot_var_temps: 
         title += "_var_temps"
     
@@ -152,13 +157,13 @@ def plot_exact_v_proj_ev_metrics_multiple(timespan, range_of_temps_or_dims, metr
                 ax.legend(loc=0)
             ax.set_title("Matrix metrics")
             
-        if plot_var_liesubalg_dim:
-            range_liesubalg_dims = range_of_temps_or_dims      
-            for dim in range_liesubalg_dims:
-                ax.plot(z, metric_local[k]["Liedim"+str(range_liesubalg_dims.index(dim))], label = label_metric[k] + " s=" + str(dim+1))
+        if plot_var_HierarchBases_dim:
+            range_HB_dims = range_of_temps_or_dims      
+            for dim in range_HB_dims:
+                ax.plot(z, metric_local[k]["HierarchBases"+str(range_HB_dims.index(dim))], label = label_metric[k] + " s=" + str(dim+1))
                 ax.legend(loc=0)
-            ax.set_title("Matrix metrics")            
-        
+            ax.set_title("Matrix metrics")  
+            
         if plot_var_temps:
             range_temps = range_of_temps_or_dims      
             for T in range_temps:
@@ -166,4 +171,6 @@ def plot_exact_v_proj_ev_metrics_multiple(timespan, range_of_temps_or_dims, metr
                 ax.legend(loc=0)
             ax.set_title("Matrix metrics")
     
+    save_results_to = 'C:/Users/tomas/PhD Physics/1st Year/Spin Chains/System of diff eqs/Rewriting Dependencies/results_figs/'
+    plt.savefig(save_results_to + title + f"_processed={len(range_of_temps_or_dims)}_items.svg")
     plt.show()    
