@@ -1,3 +1,19 @@
+# In [1]:
+
+import qutip, sys, pickle
+import numpy as np
+import scipy.optimize as opt 
+import matplotlib.pyplot as plt
+import time as time
+import scipy.linalg as linalg
+
+import matrix_analysis_lib as mat_ansys
+import spin_representations as su2
+import evs_visualization_tools as evs_plot
+import projected_evolution_dynamics as ProjEv
+
+# In [2]:
+
 def HierarchBasis_vardim_proj_evs(Hamiltonian, rho_ref, range_derived_series_orders, 
                                      temp_ref, temp_rho,
                                      generating_operator,
@@ -107,14 +123,14 @@ def HierarchBasis_vardim_proj_evs(Hamiltonian, rho_ref, range_derived_series_ord
     choose_process_exact_dynamics = [False for a in range(len(range_derived_series_orders) - 1)] + [True]
     
     for deg_solva in range_derived_series_orders:
-        print("Processing step: ", range_derived_series_orders.index(deg_solva)+1, " and hierarchical basis of s=m ", deg_solva)
+        print("Processing step: ", range_derived_series_orders.index(deg_solva)+1, " and hierarchical basis of l= ", deg_solva)
         
         id_op = qutip.tensor([qutip.qeye(2) for k in (Hamiltonian.dims[0])])
         depth_and_seed_ops = [(1, id_op), 
                               (1, Hamiltonian), 
                               (deg_solva+1, generating_operator)]
         
-        init_configs_MFT_state, evs_data, dict_res_proj_ev, res_exact = d_depth_proj_ev(
+        init_configs_MFT_state, evs_data, dict_res_proj_ev, res_exact = ProjEv.d_depth_proj_ev(
                     temp_ref = temp_ref, temp_rho = temp_rho, 
                     timespan = timespan, 
                     Hamiltonian = Hamiltonian, lagrange_op = None,
@@ -126,10 +142,10 @@ def HierarchBasis_vardim_proj_evs(Hamiltonian, rho_ref, range_derived_series_ord
                     visualization_nonherm = False, visualize_expt_vals = False, visualize_diff_expt_vals = False
                     )
     
-        multiple_init_configs["init_configs_Liedim" + str(range_derived_series_orders.index(deg_solva)+1)] = init_configs_MFT_state
-        multiple_evs_data["evs_data_Liedim" + str(range_derived_series_orders.index(deg_solva)+1)] = evs_data
-        multiple_dict_res_proj_ev["dict_res_proj_ev_Liedim" + str(range_derived_series_orders.index(deg_solva)+1)] = dict_res_proj_ev
-        multiple_res_exact["res_exact_Liedim" + str(range_derived_series_orders.index(deg_solva)+1)] = res_exact
+        multiple_init_configs["init_configs_HierarchBases" + str(range_derived_series_orders.index(deg_solva)+1)] = init_configs_MFT_state
+        multiple_evs_data["evs_data_HierarchBases" + str(range_derived_series_orders.index(deg_solva)+1)] = evs_data
+        multiple_dict_res_proj_ev["dict_res_proj_ev_HierarchBases" + str(range_derived_series_orders.index(deg_solva)+1)] = dict_res_proj_ev
+        multiple_res_exact["res_exact_HierarchBases" + str(range_derived_series_orders.index(deg_solva)+1)] = res_exact
                     
     multiple_evolutions["init_configs_all"] = multiple_init_configs
     multiple_evolutions["evs_data_all"] = multiple_evs_data
