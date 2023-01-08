@@ -117,9 +117,6 @@ def plot_exact_v_proj_ev_avgs_multiple(labels, timespan, no_cols_desired,
         
         ax.legend(loc=0)
         ax.set_title("Expected values: Proj-ev. v. Exact for " + labels[k])   
-    
-    save_results_to = 'C:/Users/tomas/PhD Physics/1st Year/Spin Chains/System of diff eqs/Rewriting Dependencies/results_figs/'
-    plt.savefig(save_results_to + title + f"_processed={len(range_of_temps_or_dims)}_items.svg")
     plt.show()
     
 def plot_exact_v_proj_ev_metrics_multiple(timespan, range_of_temps_or_dims, metric_local,
@@ -170,7 +167,4 @@ def plot_exact_v_proj_ev_metrics_multiple(timespan, range_of_temps_or_dims, metr
                 ax.plot(z, metric_local[k]["T"+str(range_temps.index(T))], label = label_metric[k] + " T=" + str(T))
                 ax.legend(loc=0)
             ax.set_title("Matrix metrics")
-    
-    save_results_to = 'C:/Users/tomas/PhD Physics/1st Year/Spin Chains/System of diff eqs/Rewriting Dependencies/results_figs/'
-    plt.savefig(save_results_to + title + f"_processed={len(range_of_temps_or_dims)}_items.svg")
-    plt.show()    
+    plt.show()
