@@ -312,7 +312,9 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
     print("    |▼| 2. using a base of size ", len(basis_orth))
     #print("    |▼| 3. rho_ref: ", rho_ref)
     
-    ### test 
+    ### First Test: checking if the orthonormalization has been succesful by constructing the Gram matrix
+        ## and checking if said Gram matrix is the identity matrix, with a tolerance established by 
+        ## default for numerical instabilities. 
     Gram_matrix = basis_orthonormality_check(basis = basis_orth, 
                                              rho0 = rho_ref, 
                                              sc_prod = mat_ansys.HS_inner_prod_r)
@@ -332,6 +334,19 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
                             rho0 = rho_ref, 
                             sc_prod = mat_ansys.HS_inner_prod_r)
     
+    ### Second Test: now, we test if the cardinality of the orthonormalized basis is equal, or not, to the dimension of the phi0 vector.
+        ## The reason for this is that, at the given temperatures, the basis' depth may have saturated, with more coefficients in 
+        ## the phi0-vector than operators in the orthonormalized basis. It is then recommended to run the algorithm again 
+                    # 1. either changing the temp and temp_ref parameters,
+                    # 2. or decreasing the hierarchical basis' depth.
+                
+    if (len(basis_orth) != len(phi0)):
+        print("    |▼| 4. Error! Orthonormalization has saturated the basis. Execution stopped.")
+        print("Cardinality Basis_orth=", len(basis_orth), "\n Cardinality phi0=", len(phi0))
+        sys.exit()
+    else:
+        print("    |▼| 4. Check passed: phi0 and basis_orth have the same cardinalities.")
+    
     ### constructing the coefficient arrays and the physical states
     res_proj_ev_rhot_list, phit_list = semigroup_phit_and_rhot_sol(phi0 = phi0, 
                                                                    rho0 = rho0, 
@@ -346,18 +361,18 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
     res_proj_ev_obs_list = [np.array([qutip.expect(obs, rhot) for rhot in herm_rhot_list]) for obs in observables]
     proj_ev_runtime = time.time() - start_time_proj_ev
     
-    print("    |▼| 4. ProjEv Dynamics Succesfully Concluded.")
+    print("    |▼| 5. ProjEv Dynamics Succesfully Concluded.")
     
     ### Exact solution 
     
     if compute_exact_dynamics: 
-        print("    |▼| 5a. Computing Exact Dynamics with QuTip package.")
+        print("    |▼| 6a. Computing Exact Dynamics with QuTip package.")
         start_time_exact = time.time()
         res_exact = mod_mesolve(Hamiltonian, rho0=rho0, tlist=timespan, c_ops=None, e_ops=observables)
         assert rho0 == res_exact.states[0], "Error: Exact initial state != Proj-ev initial state"
         exact_ev_runtime = time.time() - start_time_exact
     else:
-        print("    |▼| 5b. Exact Dynamics not to be computed. Skipped.")
+        print("    |▼| 6b. Exact Dynamics not to be computed. Skipped.")
         res_exact = None
     
     initial_configs = {}; 
@@ -371,7 +386,7 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
     dict_res_proj_ev["Avgs"] = res_proj_ev_obs_list
     
     if visualize_expt_vals and compute_exact_dynamics:
-        print("    |▼| 5a. Processing ProjEv v. Exact Plots.")
+        print("    |▼| 7a. Processing ProjEv v. Exact Plots.")
         evs_plot.plot_exact_v_proj_ev_avgs(obs = observables, labels = label_ops, timespan = timespan, 
                                   Result_proj_ev = dict_res_proj_ev["Avgs"], 
                                   Result_exact = res_exact, 
@@ -385,7 +400,7 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
                                      label_metric
                                     )
     else:
-        print("    |▼| 5b. No Plots to process.")
+        print("    |▼| 7b. No Plots to process.")
         
     evs_data = {}
     evs_data["proj_ev_runtime"] = proj_ev_runtime
@@ -396,5 +411,5 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
     Gram_matrix = None; rho_ref = None; rho0 = None; basis_orth = None
     Hijtensor = None; phit_list = None; herm_rhot_list = None; res_proj_ev_obs_list = None
     
-    print("    |▼| 6. Data Stored. Evolutions concluded. \n")
+    print("    |▼| 8. Data Stored. Evolutions concluded. \n")
     return initial_configs, evs_data, dict_res_proj_ev, res_exact
