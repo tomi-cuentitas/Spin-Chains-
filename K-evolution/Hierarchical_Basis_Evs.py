@@ -14,7 +14,7 @@ import projected_evolution_dynamics as ProjEv
 
 # In [2]:
 
-def HierarchBasis_vardim_proj_evs(Hamiltonian, rho_ref, range_derived_series_orders, 
+def HierarchBasis_vardim_proj_evs(Hamiltonian, fixed_ops_list, rho_ref, range_derived_series_orders, 
                                      temp_ref, temp_rho,
                                      generating_operator,
                                      init_coeff_list,
@@ -125,13 +125,14 @@ def HierarchBasis_vardim_proj_evs(Hamiltonian, rho_ref, range_derived_series_ord
     for deg_solva in range_derived_series_orders:
         print("Processing step: ", range_derived_series_orders.index(deg_solva)+1, " and hierarchical basis of l= ", deg_solva)
         
-        id_op = qutip.tensor([qutip.qeye(2) for k in (Hamiltonian.dims[0])])
-        depth_and_seed_ops = [(1, id_op), 
-                              (1, Hamiltonian), 
-                              (deg_solva+1, generating_operator)]
+        depth_and_seed_ops = [(1, op) for op in fixed_ops_list] + [(deg_solva+1, generating_operator)]
+        
+        #depth_and_seed_ops = [(1, id_op), 
+        #                      (1, Hamiltonian), 
+        #                      (deg_solva+1, generating_operator)]
         
         init_configs_MFT_state, evs_data, dict_res_proj_ev, res_exact = ProjEv.d_depth_proj_ev(
-                    temp_ref = temp_ref, temp_rho = temp_rho, 
+                    temp_ref = temp_ref,  temp_rho = temp_rho, 
                     timespan = timespan, 
                     Hamiltonian = Hamiltonian, lagrange_op = None,
                     depth_and_seed_ops = depth_and_seed_ops, observables = observables, label_ops = label_ops, 
