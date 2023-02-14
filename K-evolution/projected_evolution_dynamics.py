@@ -183,6 +183,7 @@ def mod_mesolve(H, rho0, tlist, c_ops=None, e_ops=None,**kwargs):
 def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
                     depth_and_seed_ops, observables, label_ops, 
                     coeff_list = None, custom_ref_state = None, 
+                    rho_ref_corr_func = None,
                     rho_ref_thermal_state = False, 
                     rho_ref_equal_rho0 = False, 
                     compute_exact_dynamics = True,
@@ -325,9 +326,12 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
     if rho_ref_equal_rho0: 
         print("    |▼| 3a. using rho0 = rho_ref")
         phi0 = loc_coeff_list; rho0 = rho_ref    
+    if rho_ref_corr_func != None:
+        print("    |▼| 3b. using rho0 = exp(C(a,b)) + rho_ref")
     else: 
         print("    |▼| 3b. constructing rho0 from the coeff. list and orth. basis")
         phi0, rho0 = build_rho0_from_basis(coeff_list = loc_coeff_list, basis = basis_orth, temp=temp_rho)
+        
         
     Hijtensor = H_ij_matrix(Hamiltonian = Hamiltonian,
                             basis = basis_orth, 
