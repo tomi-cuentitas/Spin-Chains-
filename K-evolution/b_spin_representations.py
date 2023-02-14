@@ -5,7 +5,7 @@ import numpy as np
 import scipy.optimize as opt 
 import scipy.linalg as linalg
 
-import matrix_analysis_lib as mat_ansys
+import a_matrix_analysis_lib as mat_ansys
 
 # In [2]:
 
@@ -198,7 +198,7 @@ def Heisenberg_Hamiltonian(op_list, chain_type, size, Hamiltonian_paras, closed_
 
 # In [4]:
         
-def classical_ops(Hamiltonian, N, op_list, centered_x_op = False):
+def classical_ops(Hamiltonian, size, op_list, centered_x_op = False):
     
     identity_op = op_list[0][0]; sz_list = op_list[3]    
     labels = ["identity_op", "x_op", "p_op", "n_oc_op", "comm_xp", "corr_xp", "p_dot", "n_oc_disp"]
@@ -207,10 +207,10 @@ def classical_ops(Hamiltonian, N, op_list, centered_x_op = False):
     if centered_x_op:
         cl_ops["x_op"] = sum((.5 + sz_list[k])*(k+1) for k in range(len(sz_list)))
     else:
-        cl_ops["x_op"] = sum((k-N/2)*(sz_list[k] + .5 * identity_op) for k in range(len(sz_list)-1)) 
+        cl_ops["x_op"] = sum((k-size/2)*(sz_list[k] + .5 * identity_op) for k in range(len(sz_list)))  # el -1 no va, no?
         
     cl_ops["p_op"] = 1j * mat_ansys.commutator(cl_ops["x_op"], Hamiltonian)
-    cl_ops["n_oc_op"] = sum([sz_list[k] + .5 * identity_op for k in range(len(sz_list)-1)])
+    cl_ops["n_oc_op"] = sum([sz_list[k] + .5 * identity_op for k in range(len(sz_list))]) # el -1 no va, no?
     cl_ops["comm_xp"] = .5 * mat_ansys.anticommutator(cl_ops["x_op"], cl_ops["p_op"])
     cl_ops["corr_xp"] = -1j * mat_ansys.commutator(cl_ops["x_op"], cl_ops["p_op"])
     cl_ops["p_dot"] = 1j * mat_ansys.commutator(Hamiltonian, cl_ops["p_op"])
