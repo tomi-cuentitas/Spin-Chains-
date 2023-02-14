@@ -99,8 +99,8 @@ def plot_exact_v_proj_ev_avgs_multiple(labels, timespan, no_cols_desired,
         if plot_var_HierarchBases_dim:
             range_HB_dims = range_of_temps_or_dims
             for dim in range_HB_dims: 
-                ax.plot(z, multiple_evolutions["dict_res_proj_ev_all"]["dict_res_proj_ev_HierarchBases" + str(range_HB_dims.index(dim)+1)]["Avgs"][k], label = "Proj_ev. s=" + str(dim+1))
-                var_loc = multiple_evolutions["res_exact_all"]["res_exact_HierarchBases" + str(range_HB_dims.index(dim)+1)]
+                ax.plot(z, multiple_evolutions["dict_res_proj_ev_all"]["dict_res_proj_ev_HierarchBases" + str(range_HB_dims.index(dim))]["Avgs"][k], label = "Proj_ev. ℓ=" + str(dim))
+                var_loc = multiple_evolutions["res_exact_all"]["res_exact_HierarchBases" + str(range_HB_dims.index(dim))]
                 if var_loc is None:
                     pass
                 else: 
@@ -117,6 +117,8 @@ def plot_exact_v_proj_ev_avgs_multiple(labels, timespan, no_cols_desired,
         
         ax.legend(loc=0)
         ax.set_title("Expected values: Proj-ev. v. Exact for " + labels[k])   
+    
+    plt.savefig(save_results_to + title + f"_processed={len(range_of_temps_or_dims)}_items.svg")
     plt.show()
     
 def plot_exact_v_proj_ev_metrics_multiple(timespan, range_of_temps_or_dims, metric_local,
@@ -157,7 +159,7 @@ def plot_exact_v_proj_ev_metrics_multiple(timespan, range_of_temps_or_dims, metr
         if plot_var_HierarchBases_dim:
             range_HB_dims = range_of_temps_or_dims      
             for dim in range_HB_dims:
-                ax.plot(z, metric_local[k]["HierarchBases"+str(range_HB_dims.index(dim))], label = label_metric[k] + " s=" + str(dim+1))
+                ax.plot(z, metric_local[k]["HierarchBases"+str(range_HB_dims.index(dim))], label = label_metric[k] + " ℓ=" + str(dim))
                 ax.legend(loc=0)
             ax.set_title("Matrix metrics")  
             
@@ -167,4 +169,6 @@ def plot_exact_v_proj_ev_metrics_multiple(timespan, range_of_temps_or_dims, metr
                 ax.plot(z, metric_local[k]["T"+str(range_temps.index(T))], label = label_metric[k] + " T=" + str(T))
                 ax.legend(loc=0)
             ax.set_title("Matrix metrics")
-    plt.show()
+    
+    plt.savefig(save_results_to + title + f"_processed={len(range_of_temps_or_dims)}_items.svg")
+    plt.show()    
