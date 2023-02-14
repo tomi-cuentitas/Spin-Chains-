@@ -408,10 +408,11 @@ def recursive_basis(depth, seed_op, Hamiltonian, rho0):
             if (linalg.norm(loc_op) < 1e-10):
                 loc_op = None
                 break
+                print("Log report: Hierarchichal Basis terminated due to null commutator.")
             loc_op = (loc_op * rho0).tr() - loc_op
             basis.append(loc_op)
     elif (depth == 0):
-        basis += [] 
+        pass
     return basis
 
 def vectorized_recursive_basis(depth_and_ops, Hamiltonian, rho0):        
