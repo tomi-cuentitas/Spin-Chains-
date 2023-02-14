@@ -424,46 +424,30 @@ def vectorized_recursive_basis(depth_and_ops, Hamiltonian, rho0):
 # In [7]:
 
 def exact_v_proj_ev_matrix_metrics_multiple(timespan, range_of_temps_or_dims, multiple_evolutions,
-                                              plot_var_lengths = False,
-                                              plot_var_HierarchBases_dim = False,
-                                              plot_var_temps = False):
+                                              plot_var_HierarchBases_dim = False):
     
     z = timespan[:-1]
     bures_Ex_v_Proj_all = {}
     relEntropy_Ex_v_Proj_all = {}
     relEntropy_Proj_v_Ex_all = {}
     
-    if (plot_var_lengths== False) and (plot_var_HierarchBases_dim == False) and (plot_var_temps == False):
+    if (plot_var_HierarchBases_dim == False):
             print("No visualization choice taken")
     
-    if plot_var_lengths:   
-        range_dims = range_of_temps_or_dims
-        for dim in range_dims: 
-            rhot_list = multiple_evolutions["dict_res_proj_ev_all"]["dict_res_proj_ev_N" + str(range_dims.index(dim))]["State_ev"]
-            sigmat_list = multiple_evolutions["res_exact_all"]["res_exact_N" + str(range_dims.index(dim))].states[:-1]
-        
-            bures_Ex_v_Proj_all["N" + str(range_dims.index(dim))] = bures_vectorized(rhot_list = rhot_list,
-                                                                                      sigmat_list = sigmat_list)
-            local = relative_entropies_vectorized (rhot_list = rhot_list, sigmat_list = sigmat_list)
-            relEntropy_Proj_v_Ex_all["N" + str(range_dims.index(dim))] = local[0]
-            relEntropy_Ex_v_Proj_all["N" + str(range_dims.index(dim))] = local[1]
-            rhot_list = None; sigmat_list = None
-        
     if plot_var_HierarchBases_dim:
-        
         range_HB_dims = range_of_temps_or_dims
         ### The list is searched twice. First, to identify and extract the data from the exact evolution via sigmat_list.
         ### And then to actually compute the metrics of a particular ProjEv with the exact evolution data. 
         
         for dim in range_HB_dims: 
-            res_exact_loc = multiple_evolutions["res_exact_all"]["res_exact_HierarchBases" + str(range_HB_dims.index(dim)+1)]
+            res_exact_loc = multiple_evolutions["res_exact_all"]["res_exact_HierarchBases" + str(range_HB_dims.index(dim))]
             if res_exact_loc is None:
                 pass
             else: 
                 sigmat_list = res_exact_loc.states[:-1]
         
         for dim in range_HB_dims: 
-            rhot_list = multiple_evolutions["dict_res_proj_ev_all"]["dict_res_proj_ev_HierarchBases" + str(range_HB_dims.index(dim)+1)]["State_ev"]
+            rhot_list = multiple_evolutions["dict_res_proj_ev_all"]["dict_res_proj_ev_HierarchBases" + str(range_HB_dims.index(dim))]["State_ev"]
             sigmat_list = res_exact_loc.states[:-1] ### acá hay un bug raro, si no pongo esta línea nuevamente, se borra sigmat_list y
                                                     ### queda en None. Así funciona. 
             
@@ -474,40 +458,4 @@ def exact_v_proj_ev_matrix_metrics_multiple(timespan, range_of_temps_or_dims, mu
             relEntropy_Ex_v_Proj_all["HierarchBases" + str(range_HB_dims.index(dim))] = local[1]
             rhot_list = None; sigmat_list = None; 
         
-    if plot_var_temps: 
-        range_temps = range_of_temps_or_dims
-        for T in range_temps: 
-            rhot_list = multiple_evolutions["dict_res_proj_ev_all"]["dict_res_proj_ev_T" + str(range_temps.index(T))]["State_ev"]
-            sigmat_list = multiple_evolutions["res_exact_all"]["res_exact_T" + str(range_temps.index(T))].states[:-1]
-        
-            bures_Ex_v_Proj_all["T" + str(range_temps.index(T))] = bures_vectorized(rhot_list = rhot_list,
-                                                                                   sigmat_list = sigmat_list)
-            local = relative_entropies_vectorized (rhot_list = rhot_list, sigmat_list = sigmat_list)
-            relEntropy_Proj_v_Ex_all["T" + str(range_temps.index(T))] = local[0]
-            relEntropy_Ex_v_Proj_all["T" + str(range_temps.index(T))] = local[1]
-            rhot_list = None; sigmat_list = None
-    
     return bures_Ex_v_Proj_all, relEntropy_Ex_v_Proj_all, relEntropy_Proj_v_Ex_all
-
-# In Legacy [1]:
-
-def Hamiltonian_comm_basis_reduce(Hamiltonian, basis, labels = None, remove_null = True): # previously, Hamiltonian_comm_check
-    """
-    This function performs a test, cheking if the basis
-    elements commute with the system's Hamiltonian. 
-    If the remove null option is chosen, those operators
-    which commute with the Hamiltonian are erased. Then,
-    it returns the new basis.
-    """
-    if type(basis) is dict:
-        for i in basis.copy(): 
-            print("[H, ", i, "] = 0?: ", null_matrix_check(commutator(Hamiltonian, basis[i])))
-            if remove_null and null_matrix_check(commutator(Hamiltonian, basis[i])):
-                del basis[i]
-                print(i, "basis element deleted")
-    if type(basis) is list:
-        for i in range(len(basis)):
-            print("[H, ", i, "] = 0?: ", null_matrix_check(commutator(Hamiltonian, basis[i])))
-            if remove_null and null_matrix_check(commutator(Hamiltonian, basis[key])):
-                basis.pop()
-    return basis
