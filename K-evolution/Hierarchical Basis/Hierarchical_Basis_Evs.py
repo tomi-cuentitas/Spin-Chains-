@@ -19,7 +19,8 @@ def HierarchBasis_vardim_proj_evs(Hamiltonian, fixed_ops_list, rho_ref, range_de
                                      generating_operator,
                                      init_coeff_list,
                                      timespan, label_ops,
-                                     observables):
+                                     observables,
+                                     rho_ref_equal_rho0 = False):
     
     """
     This module performs multiple projected and exact 
@@ -138,15 +139,15 @@ def HierarchBasis_vardim_proj_evs(Hamiltonian, fixed_ops_list, rho_ref, range_de
                     depth_and_seed_ops = depth_and_seed_ops, observables = observables, label_ops = label_ops, 
                     coeff_list = init_coeff_list[range_derived_series_orders.index(deg_solva)], 
                     custom_ref_state = rho_ref, 
-                    rho_ref_thermal_state = False, rho_ref_equal_rho0 = False, visualize_H_evs = False, 
+                    rho_ref_thermal_state = False, rho_ref_equal_rho0 = rho_ref_equal_rho0, visualize_H_evs = False, 
                     compute_exact_dynamics = choose_process_exact_dynamics[range_derived_series_orders.index(deg_solva)],
                     visualization_nonherm = False, visualize_expt_vals = False, visualize_diff_expt_vals = False
                     )
     
-        multiple_init_configs["init_configs_HierarchBases" + str(range_derived_series_orders.index(deg_solva)+1)] = init_configs_MFT_state
-        multiple_evs_data["evs_data_HierarchBases" + str(range_derived_series_orders.index(deg_solva)+1)] = evs_data
-        multiple_dict_res_proj_ev["dict_res_proj_ev_HierarchBases" + str(range_derived_series_orders.index(deg_solva)+1)] = dict_res_proj_ev
-        multiple_res_exact["res_exact_HierarchBases" + str(range_derived_series_orders.index(deg_solva)+1)] = res_exact
+        multiple_init_configs["init_configs_HierarchBases" + str(range_derived_series_orders.index(deg_solva))] = init_configs_MFT_state
+        multiple_evs_data["evs_data_HierarchBases" + str(range_derived_series_orders.index(deg_solva))] = evs_data
+        multiple_dict_res_proj_ev["dict_res_proj_ev_HierarchBases" + str(range_derived_series_orders.index(deg_solva))] = dict_res_proj_ev
+        multiple_res_exact["res_exact_HierarchBases" + str(range_derived_series_orders.index(deg_solva))] = res_exact
                     
     multiple_evolutions["init_configs_all"] = multiple_init_configs
     multiple_evolutions["evs_data_all"] = multiple_evs_data
