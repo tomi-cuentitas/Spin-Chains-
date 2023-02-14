@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 import time as time
 import scipy.linalg as linalg
 
-import matrix_analysis_lib as mat_ansys
-import spin_representations as su2
-import evs_visualization_tools as evs_plot
+import a_matrix_analysis_lib as mat_ansys
+import b_spin_representations as su2
+import c_evs_visualization_tools as evs_plot
 
 # In [1]:
 
