@@ -96,11 +96,11 @@ def plot_exact_v_proj_ev_avgs_multiple(labels, timespan, no_cols_desired,
         ax.legend(loc=0)
         ax.set_title("Expected values: Proj-ev. v. Exact for " + labels[k])   
     
-    save_results_to = 'C:/Users/tomas/PhD Physics/1st Year/Spin Chains/results_figs/'
-    plt.savefig(save_results_to + title + f"_processed={len(range_of_temps_or_dims)}_items.svg")
+    #save_results_to = 'C:/Users/tomas/PhD Physics/2nd Year/Max_Ent_restricted_evs/results_figs/'
+    #plt.savefig(save_results_to + title + f"_processed={len(range_of_temps_or_dims)}_items.svg")
     plt.show()
     
-def plot_exact_v_proj_ev_metrics_multiple(timespan, range_of_temps_or_dims, metric_local,
+def plot_exact_v_proj_ev_metrics_multiple(timespan, range_of_temps_or_dims, metric_local, cols = 1,
                                           plot_var_HierarchBases_dim = False):
     
     if (plot_var_HierarchBases_dim == False):
@@ -110,25 +110,27 @@ def plot_exact_v_proj_ev_metrics_multiple(timespan, range_of_temps_or_dims, metr
     if plot_var_HierarchBases_dim:
         title += "_var_HierarchBases"
     
-    label_metric = ["Bures Exact v. Proj ev", "S(exact || proj_ev)", "S(proj_ev || exact)"]
-    Tot = len(label_metric); Cols = 3
+    label_metric = [r'Bures $\rho, \sigma$', r'$S(\rho || \sigma)$', r'$S(\sigma || \rho)$']
+    Tot = len(label_metric); Cols = cols
     Rows = Tot // Cols 
     if Tot % Cols != 0:
         Rows += 1
     Position = range(1,Tot + 1)
     z = timespan[:-1]
-    fig = plt.figure(figsize=(20, 10))
+    fig = plt.figure(figsize=(10, 7))
     
     for k in range(Tot):
+        if k == 1:
+            ax.set_title(r'Metrics on the states $\rho$ and $\sigma$')  
         ax = fig.add_subplot(Rows, Cols, Position[k])
        
         if plot_var_HierarchBases_dim:
             range_HB_dims = range_of_temps_or_dims      
             for dim in range_HB_dims:
-                ax.plot(z, metric_local[k]["HierarchBases"+str(range_HB_dims.index(dim))], label = label_metric[k] + " ℓ=" + str(dim))
+                ax.plot(z, metric_local[k]["HierarchBases"+str(range_HB_dims.index(dim))], label = label_metric[k] + ", ℓ=" + str(dim))
                 ax.legend(loc=0)
-            ax.set_title("Matrix metrics")  
+            #ax.set_title(label_metric[k])  
     
-    save_results_to = 'C:/Users/tomas/PhD Physics/1st Year/Spin Chains/results_figs/'
-    plt.savefig(save_results_to + title + f"_processed={len(range_of_temps_or_dims)}_items.svg")
+    #save_results_to = 'C:/Users/tomas/PhD Physics/1st Year/Spin Chains/results_figs/'
+    #plt.savefig(save_results_to + title + f"_processed={len(range_of_temps_or_dims)}_items.svg")
     plt.show()    
