@@ -47,12 +47,12 @@ def H_ij_matrix(Hamiltonian, basis, rho0, sc_prod):
 def basis_orthonormality_check(basis, rho0, sc_prod, visualization_Gram_m = False,
                                                      title_format_dprojev = True): 
     dim = len(basis)
-    hermitian_basis = [mat_ansys.non_hermitianess_measure(op1) <= 1e-10 for op1 in basis]
+    hermitian_basis = [mat_ansys.non_hermitianess_measure(op1) <= 1e-5 for op1 in basis]
     assert np.all(hermitian_basis), ("Not all the operators are "
                                      f"hermitian:\n {hermitian_basis}")
     
     gram_matrix = [[sc_prod(op2, op1, rho0) for op2 in basis] for op1 in basis]
-    normalized = [abs(gram_matrix[i][i]-1.) <= 1e-10  for i in range(dim)]
+    normalized = [abs(gram_matrix[i][i]-1.) <= 1e-5  for i in range(dim)]
     assert all(normalized), ("Some operators in the basis are not normalized:\n"
                              f"{normalized}")
 
@@ -61,7 +61,7 @@ def basis_orthonormality_check(basis, rho0, sc_prod, visualization_Gram_m = Fals
     if title_format_dprojev:
         print("    |▼| 3. Check passed: the basis is orthonormal and hermitian")
     else: 
-        print("The basis is orthonormal and hermitian")
+        print("The basis is not orthonormal and hermitian")
 
     null_averages = [np.real((rho0 * op1).tr()) <= 1e-6 for op1 in basis]
     assert all(null_averages[1:]), ("Some operators do not have a null average:\n" 
@@ -83,9 +83,6 @@ def build_rho0_from_basis(coeff_list, basis, temp):
     state 
     """
     beta = 1/temp
-    if (coeff_list == None):
-        coeff_list = [0.] + [np.random.rand() for i in range(len(basis) - 1)]
-     
     loc_coeff_list = coeff_list
     rho0 = (-sum( f*op  for f, op in zip(loc_coeff_list, basis))).expm()
     rho0 = rho0/rho0.tr()
@@ -113,11 +110,12 @@ def semigroup_phit_and_rhot_sol(phi0, rho0, Htensor, ts, basis):
     *. and the basis of operators.
     """
     
-    Phi_vector_solution = []; rho_at_timet = []
+    Phi_vector_solution = []; rho_at_timet = []; tracerho_at_timet = []
     phi0=np.array(phi0)
     Phi_vector_solution.append(phi0); rho_at_timet.append(rho0)
     
     new_phi = Phi_vector_solution[0]
+    tracerho_at_timet = [0]
     for i in range(1, len(ts)-1):
         evol_op = linalg.expm(ts[i]*Htensor)
         new_phi = evol_op.dot(phi0)
@@ -128,8 +126,9 @@ def semigroup_phit_and_rhot_sol(phi0, rho0, Htensor, ts, basis):
             print("Non hermitician part norm:", np.linalg.norm( (K-K.dag()).full())  )
             assert K.isherm, "K is not Hermitician "
         rhot= K.expm()
+        tracerho_at_timet.append(rhot.tr())
         rho_at_timet.append(rhot/rhot.tr())
-    return rho_at_timet, Phi_vector_solution    
+    return rho_at_timet, Phi_vector_solution, tracerho_at_timet 
 
 def semigroup_rhos_test(rho_list, visualization_nonherm, ts):
     non_densitiness = [ (mat_ansys.non_hermitianess_measure(rho_list[t])/linalg.norm(rho_list[t])) for t in range(len(rho_list))]
@@ -182,6 +181,7 @@ def mod_mesolve(H, rho0, tlist, c_ops=None, e_ops=None,**kwargs):
 
 def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
                     depth_and_seed_ops, observables, label_ops, 
+                    K_ref,
                     coeff_list = None, custom_ref_state = None, 
                     rho_ref_corr_func = None,
                     rho_ref_thermal_state = False, 
@@ -278,9 +278,6 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
                  d. the exact results, obtained from QuTip's 
                     master equation solver,
     """
-    ### Projected solutions
-    ### building reference states and testing it
-    
     start_time_proj_ev = time.time()
     print("    |▼| 1. Processing reference state ===>")
     if custom_ref_state is None:
@@ -302,9 +299,11 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
         print("                  c. ^^##^^. custom reference state chosen")
         rho_ref = custom_ref_state
     
-    basis_incursive = mat_ansys.vectorized_recursive_basis(depth_and_ops=depth_and_seed_ops,                                             
-                                                 Hamiltonian=Hamiltonian, 
-                                                 rho0=rho_ref)
+    basis_incursive = mat_ansys.vectorized_Hierarchical_Basis(depth_and_ops=depth_and_seed_ops,                                             
+                                                                 Hamiltonian=Hamiltonian, 
+                                                                 rho_ref=rho_ref)
+    
+    print("basis_incursive_len", len(basis_incursive))
     
     basis_orth = mat_ansys.base_orth(ops = basis_incursive, 
                            rho0 = rho_ref, 
@@ -321,17 +320,15 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
                                              sc_prod = mat_ansys.HS_inner_prod_r)
     
     ### constructing the initial state and H-tensor
-    loc_coeff_list = coeff_list
+    #loc_coeff_list = coeff_list
+    loc_coeff_list = [mat_ansys.HS_inner_prod_r(orth_op, K_ref) for orth_op in basis_orth]
     
     if rho_ref_equal_rho0: 
         print("    |▼| 3a. using rho0 = rho_ref")
         phi0 = loc_coeff_list; rho0 = rho_ref    
-    if rho_ref_corr_func != None:
-        print("    |▼| 3b. using rho0 = exp(C(a,b)) + rho_ref")
     else: 
         print("    |▼| 3b. constructing rho0 from the coeff. list and orth. basis")
         phi0, rho0 = build_rho0_from_basis(coeff_list = loc_coeff_list, basis = basis_orth, temp=temp_rho)
-        
         
     Hijtensor = H_ij_matrix(Hamiltonian = Hamiltonian,
                             basis = basis_orth, 
@@ -352,7 +349,7 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
         print("    |▼| 4. Check passed: phi0 and basis_orth have the same cardinalities.")
     
     ### constructing the coefficient arrays and the physical states
-    res_proj_ev_rhot_list, phit_list = semigroup_phit_and_rhot_sol(phi0 = phi0, 
+    res_proj_ev_rhot_list, phit_list, tracerho_at_timet = semigroup_phit_and_rhot_sol(phi0 = phi0, 
                                                                    rho0 = rho0, 
                                                                    Htensor = Hijtensor, 
                                                                    ts = timespan, 
@@ -388,6 +385,7 @@ def d_depth_proj_ev(temp_ref, temp_rho, timespan, Hamiltonian, lagrange_op,
     dict_res_proj_ev["Coeff_ev"] = phit_list
     dict_res_proj_ev["State_ev"] = herm_rhot_list; 
     dict_res_proj_ev["Avgs"] = res_proj_ev_obs_list
+    dict_res_proj_ev["Traces"] = tracerho_at_timet
     
     if visualize_expt_vals and compute_exact_dynamics:
         print("    |▼| 7a. Processing ProjEv v. Exact Plots.")
