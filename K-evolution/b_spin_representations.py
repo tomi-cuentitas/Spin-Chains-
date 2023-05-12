@@ -9,16 +9,6 @@ import a_matrix_analysis_lib as mat_ansys
 
 # In [2]:
 
-def prod_basis(b1, b2):
-    """
-    This module constructs the tensor product of two
-    operators. It takes as input:
-        
-    ***. two qutip.Qobjs
-    
-    """
-    return [qutip.tensor(b,s) for b in b1 for s in b2]
-
 def one_body_spin_ops(size):
     """
     Given an N-site spin chain, there are then 3N different, 
@@ -58,19 +48,6 @@ def one_body_spin_ops(size):
         operator_list[n] = sz
         loc_sz_list.append(qutip.tensor(operator_list))        
     return loc_global_id, loc_sx_list, loc_sy_list, loc_sz_list
-
-def spin_dephasing(op_list, size, gamma):
-    """ 
-    If a non-unitary Lindblad evolution is desired,
-    this modeule constructs a list of collapse
-    operators and collapse factors.
-    By default, sigma-z collapse operators are chosen
-    """
-    loc_c_op_list = []; 
-    loc_sz_list = op_list[3]
-    collapse_weights = abs(gamma) * np.ones(size)
-    loc_c_op_list = [np.sqrt(collapse_weights[n]) * loc_sz_list[n] for n in range(size)]
-    return loc_c_op_list
 
 # In [2]: 
 
@@ -222,59 +199,3 @@ def classical_ops(Hamiltonian, size, op_list, centered_x_op = False):
         else:
             print(labels[i], "not hermitian")
     return cl_ops, labels
-
-#### Legacy ####
-
-# In [-1]:
-
-def two_body_spin_ops(op_list, size, build_all = False):
-    """
-    This module is redundant in its current form. 
-    It basically either constructs all two-body 
-    correlators or some subset of these. 
-    """
-    loc_list = []
-    if build_all:
-        loc_list = all_two_body_spin_ops(op_list, N)
-    else: 
-        globalid_list, sx_list, sy_list, sz_list = op_list       
-        loc_sxsx = []; loc_sysy = []; loc_szsz = [];
-        
-        loc_sxsx = [sx_list[n] * sx_list[m] for n in range(size)
-                                            for m in range(size)]
-        loc_sysy = [sy_list[n] * sy_list[m] for n in range(size)
-                                            for m in range(size)]
-        loc_szsz = [sz_list[n] * sz_list[m] for n in range(size)
-                                            for m in range(size)]
-        loc_list.append(loc_sxsx)
-        loc_list.append(loc_sysy)
-        loc_list.append(loc_szsz)
-    return loc_list
-
-def Heisenberg_Hamiltonian_tests(spin_ops_list, N):
-    start_time = time.time()
-    Hamiltonian_paras = [.2, .15, .1, 1.]
-    spin_chain_type = ["XX", "XYZ", "XXZ", "XXX"]
-    all_hamiltonians_are_hermitian = [False for i in range(2* len(spin_chain_type))]
-    
-    for i in range(len(spin_chain_type)):
-        all_hamiltonians_are_hermitian[i] = qutip.isherm(Heisenberg_Hamiltonian(spin_ops_list, spin_chain_type[i],
-                                                                              N, False, Hamiltonian_paras, False))
-        if (all_hamiltonians_are_hermitian[i] == True):
-            pass
-        else:
-            print(spin_chain_type[i], "Hamiltonian with open bcs non-hermitian")
-                
-    for i in range(len(spin_chain_type)):
-        all_hamiltonians_are_hermitian[4+i] = qutip.isherm(Heisenberg_Hamiltonian(spin_ops_list, spin_chain_type[i],
-                                                                              N, False, Hamiltonian_paras, True))
-        
-        if (all_hamiltonians_are_hermitian[i] == True):
-            pass
-        else:
-            print(spin_chain_type[i], "Hamiltonian with closed bcs non-hermitian")
-    
-    if (Heisenberg_Hamiltonian_tests(spin_ops_list, N) == [True for i in range(2*len(spin_chain_type))]):
-        print("All Hamiltonians are correct")
-    print("--- Test concluded in: %s seconds ---" % (time.time() - start_time))
-    return all_hamiltonians_are_hermitian
