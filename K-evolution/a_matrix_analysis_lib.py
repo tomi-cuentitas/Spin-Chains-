@@ -7,14 +7,22 @@ import scipy.linalg as linalg
 
 # In [2]:
 
-def ev_checks(rho):
+def ev_checks(rho, check_positive_definite = False, tol = 1e-3):
     """
-    This module checks if a QuTip.Qobj, a matrix in particular,
-    is positive definite i.e. if all its eigenvalues are 
-    strictly positive via a Cholesky decomposition.
+    This module checks if a qutip.Qobj, a matrix, is either positive-definite or positive semi-definite, 
+    i.e. whether or not all of its eigenvalues are strictly positive or non-negative, respectively. 
     This module takes as input the following parameters:
     
         *♥*♥* 1. rho: a qutip.Qobj.
+        *♥*♥* 2. check_positive_definite: an optional boolean parameter 
+                                            If it is toggled on, positive-definiteness 
+                                            will be checked via a Cholesky decomposition.
+                                          Otherwise, only positive semi-definiteness 
+                                            will be analyzed, by explicitly checking the 
+                                            matrix's eigenvalues. 
+        *♥*♥* 3. tol: an optional boolean parameter, used only when positive semi-definiteness
+                       is being analyzed, by establishing an upper bound on the smallest eigenvalue. 
+        
         ====> Returns: a boolean, its truth value
                                   being whether or not 
                                   rho is a positive-definite
@@ -22,43 +30,50 @@ def ev_checks(rho):
         Warnings: None.
     """
     if isinstance(rho, qutip.Qobj):
-        rho = rho.full()
-    try:
-        np.linalg.cholesky(rho)
-    except:
-        return False
-    return True
+        pass
+    else:
+        rho = qutip.Qobj(rho)
+    
+    if check_positive_definite: 
+        try:
+            rho = rho.full()
+            np.linalg.cholesky(rho)
+        except:
+            return False
+        return True
+    else:
+        ev_list = rho.eigenenergies()
+        ev_list = sorted(rho.eigenenergies())
+        min_ev = min(ev_list); ev_list = None
+        if min_ev < 0:
+            min_ev = abs(min_ev)
+        if (min_ev > tol):
+            return True
+        else:
+            return False 
+        return True
 
-def is_density_op(rho, verbose=False, critical=False, tol = 1e-10):
+def is_density_op(rho, verbose=False, critical=False, tol = 1e-3):
     """
-    This module checks if the user-input QuTip.Qobj,
-    rho, is a density operator or not. This is done 
-    by checking if it is a hermitian, positive definite,  
-    and trace-one, matrix. 
+    This module checks if the user-input QuTip.Qobj, rho, is a density operator or not. This is done 
+    by checking if it is a hermitian, positive semi-definite, and trace-one, matrix. 
     This module takes as input the following parameters:
     
         *♥*♥* 1. rho: a qutip.Qobj,
-        *♥*♥* 2. verbose: an optional boolean parameter 
-                          for printing out logs,
-                          stating which tests rho hasn't 
-                          passed,
-        *♥*♥* 3. critical: an optional boolean parameter
-                           ???,
-        *♥*♥* 4. tol: an optional boolean parameter for 
-                      establishing a maximum tolerance 
-                      for numerical errors, when computing
-                      rho's trace. See Warnings further
-                      below.
+        *♥*♥* 2. verbose: an optional boolean parameter for printing out logs,
+                          stating which tests rho hasn't passed,
+        *♥*♥* 3. critical: an optional boolean parameter.
+        *♥*♥* 4. tol: an optional boolean parameter for establishing a maximum tolerance 
+                        for numerical errors, when computing rho's trace. 
+                        See Warnings further below.
        
         ====> Returns: a boolean, its truth value
                                   being whether or not 
                                   rho is a density matrix.
                                   
-        Warnings: Due to numerical instabilities, 
-                  it may be possible for the trace 
-                  to not be exactly one, even though 
-                  it is supposed to be. Therefore, a 
-                  cut-off is implemented to check for 
+        Warnings: Due to numerical instabilities, it may be possible for the trace 
+                  to not be exactly one, even though it is supposed to be. 
+                  Therefore, a cut-off is implemented to check this condition.
     """
     if not qutip.isherm(rho):
         if verbose:
@@ -92,7 +107,7 @@ def non_hermitianess_measure(rho):
     """
     return linalg.norm(rho - rho.dag())
 
-def null_matrix_check(rho, tol = 1e-10):
+def null_matrix_check(rho, tol = 1e-3):
     return (linalg.norm(rho) < tol)
 
 # In [3]:
@@ -162,18 +177,6 @@ def basis_hermitian_check(basis):
     if type(basis) is dict:
         basis_loc = basis.values()
     return [null_matrix_check(op - op.dag()) for op in basis_loc]
-
-def basis_not_equal(basis1, basis2):
-    """
-    Given two sets of square matrices, 
-    
-    TODO
-    """
-    
-    basis_elmts_dist = [("basis1 op:" + i, "basis2 op" + j, 
-                         linalg.norm(basis1[i] - basis2[j])) for i in range(len(basis1))
-                                                             for j in range(len(basis2))]
-    return (basis_elmts_dist)
 
 # In [3]:
 
@@ -256,29 +259,12 @@ def base_orth(ops, rho0, sc_prod, visualization = False, reinforce_reality=False
             print(alpha)
         op_mod = op - sum([c*op2 for c, op2, in zip(alpha, basis)])
         op_norm = np.sqrt(sc_prod(op_mod,op_mod,rho0))
-        if op_norm > 1.e-5:
-            if visualization:
+        if visualization:
                 print("*****************norm", op_norm)
+        if op_norm > 1.e-5:
             op_mod = op_mod/(op_norm)
             basis.append(op_mod)
     return basis
-
-def mutual_coherence(basis1, basis2, rho0 = None, inner_prod_choice = HS_inner_prod_r):
-    """
-    Given two orthonormal bases, their mutual coherence
-    is calculated. This module takes as input:
-    ***. two orthonormal basis, basis1, basis2,
-    ***. an optional reference state,
-    ***. a Hilbert-Schmidt inner product, either its
-         real valued version or the complex-valued one.
-         
-    ===> Returns: 1. a list with all pairwise inner 
-                        product results,
-                  2. the bases' mutual coherence. 
-    """
-    cohr_list = [np.real(inner_prod_choice(op1, op2, rho0)) for op1 in basis1
-                                                   for op2 in basis2]
-    return cohr_list, max(cohr_list)
 
 # In [4]: 
 
@@ -353,25 +339,22 @@ def bures(rho, sigma, svd = True):
     assert abs(fidelity.imag)<1.e-10, f"complex fidelity? fidelity={fidelity}"
     fidelity = fidelity.real
     assert 0 <= fidelity, f"negative fidelity? fidelity={fidelity}"
-    if fidelity>1.:
+    if fidelity>1.05:
         assert (fidelity-1)<1.e-8, f"error in fidelity too large fidelity={fidelity}"
         return 0.
     return  np.arccos(fidelity)/np.pi
 
 # In [5]:
 
-def proj_op(K, basis, rho0, sc_prod):
-    return sum([sc_prod(b, K,rho0) * b for b in basis])
-
 def rel_entropy(rho, sigma, svd = True):
     if svd:
         val = (rho*(logM(rho, True) - logM(sigma, True))).tr()
     else:
-        assert ((ev_checks(rho) and ev_checks(sigma))), "Either rho or sigma non positive"
+        assert ((ev_checks(rho) and ev_checks(sigma))), "Either rho or sigma have negative ev."
         val = (rho*(logM(rho, False)-logM(sigma, False))).tr()
         if (abs(val.imag - 0)>1.e-10):
             val = None
-            raise Exception("Either rho or sigma not positive")
+            raise Exception("Either rho or sigma have negative ev.")
     return val.real
 
 def bures_vectorized(rhot_list, sigmat_list):
@@ -387,7 +370,7 @@ def relative_entropies_vectorized(rhot_list, sigmat_list):
 
 # In [6]:
 
-def recursive_basis(depth, seed_op, Hamiltonian, rho0): 
+def Hierarchical_Basis(depth, seed_op, Hamiltonian, rho_ref, tol = 1e-5): 
     """
     Build a basis of the form 
     [c_0(seed_op), c_1(seed_op), ... c_depth(seed_op)]
@@ -405,20 +388,20 @@ def recursive_basis(depth, seed_op, Hamiltonian, rho0):
     if isinstance(depth, int) and depth > 0: 
         for i in range(1, depth):
             loc_op = qutip.Qobj(-1j * commutator(Hamiltonian, basis[i-1]))
-            if (linalg.norm(loc_op) < 1e-10):
+            if (linalg.norm(loc_op) < tol):
                 loc_op = None
                 break
                 print("Log report: Hierarchichal Basis terminated due to null commutator.")
-            loc_op = (loc_op * rho0).tr() - loc_op
+            loc_op = (loc_op * rho_ref).tr() - loc_op
             basis.append(loc_op)
     elif (depth == 0):
-        pass
+        basis = []
     return basis
 
-def vectorized_recursive_basis(depth_and_ops, Hamiltonian, rho0):        
+def vectorized_Hierarchical_Basis(depth_and_ops, Hamiltonian, rho_ref):        
     basis_rec = []
     for depth, op in depth_and_ops: 
-        basis_rec += recursive_basis(depth, op, Hamiltonian, rho0)
+        basis_rec += Hierarchical_Basis(depth, op, Hamiltonian, rho_ref)
     return basis_rec
 
 # In [7]:
