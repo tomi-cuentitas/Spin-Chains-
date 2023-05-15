@@ -47,7 +47,47 @@ def ev_checks(rho, check_positive_definite = False, tol = 1e-5):
         min_ev = min(ev_list); ev_list = None
         if min_ev < 0:
             assert abs(min_ev) > tol, "Qobj is not positive semi-definite"
-        return True
+    return True
+    
+def is_density_op(rho, verbose=False, critical=False, tol = 1e-5):
+    """
+    This module checks if the user-input QuTip.Qobj, rho, is a density operator or not. This is done by checking if it is a hermitian, 
+    positive semi-definite, and trace-one, matrix. This module takes as input the following parameters:
+    
+        *♥*♥* 1. rho: a qutip.Qobj,
+        *♥*♥* 2. verbose: an optional boolean parameter for printing out logs,
+                          stating which tests rho hasn't passed,
+        *♥*♥* 3. critical: an optional boolean parameter
+                           ???,
+        *♥*♥* 4. tol: an optional boolean parameter for establishing a maximum tolerance 
+                      for numerical errors, when computing rho's trace. See Warnings further below.
+       
+        ====> Returns: a boolean, its truth value being whether or not rho is a density matrix.
+                                  
+        Warnings: Due to numerical instabilities, it may be possible for the trace 
+                  to not be exactly one, even though it is supposed to be. 
+                  Therefore, a cut-off is implemented to check for 
+    """
+    if not qutip.isherm(rho):
+        if (np.linalg.norm(rho - rho.dag()) < tol):
+            return True
+        else:
+            if verbose:
+                print("rho is not hermitian")
+            assert not critical
+            return False
+    if abs(1 - rho.tr()) > tol:
+        if verbose:
+            print("Tr rho != 1, Tr rho = ", rho.tr())
+        assert not critical
+        return False
+    if not ev_checks(rho):
+        if verbose:
+            print("rho is not positive")
+        assert not critical
+        return False
+    return True    
+
     
     
     
