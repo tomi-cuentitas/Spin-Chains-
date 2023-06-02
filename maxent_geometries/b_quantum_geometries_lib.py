@@ -1,9 +1,11 @@
 # In [0]:
 
-import qutip, sys, pickle
+import sys, pickle
 import numpy as np
 import scipy.optimize as opt 
 import scipy.linalg as linalg
+
+import qutip as Qobj
 
 # In [1]:
 
@@ -179,9 +181,3 @@ def project_op(op: Qobj, orth_basis: list, innerprod: callable):
     
     """
     return np.array([innerprod(qop, op) for qop in orth_basis])
-
-
-    
-                                  
-    
-    
