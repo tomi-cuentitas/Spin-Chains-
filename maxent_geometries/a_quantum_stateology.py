@@ -1,9 +1,56 @@
 # In [1]:
 
-import qutip, sys, pickle
+import sys, pickle
 import numpy as np
 import scipy.optimize as opt 
 import scipy.linalg as linalg
+import qutip 
+
+# In [2]:
+
+def null_matrix_check(op, tol = 1e-5):
+    return (linalg.norm(rho) < tol)
+
+def non_hermitianess_measure(rho):
+    """
+    Returns a measure of the non-hermitian character
+    of a user-input matrix, rho, by calculating the Frobenius 
+    norm of the difference of rho and its adjoint.
+    This module takes as input the following parameters:
+    
+        *♥*♥* 1. rho: a square matrix, not needing to be 
+                      a QuTip.Qobj.
+        ====> Returns: the norm ||rho - rho.dag()||_F
+        
+        Warnings: None
+    """
+    return linalg.norm(rho - rho.dag())
+
+def basis_hermitian_check(basis):
+    """
+    Given a list or a dictionary of square Qutip.Qobj operators
+    this module computes the non-hermitian character of said 
+    operators by calculating the Frobenius norm of an operator
+    and its adjoint. 
+    
+    This module takes as input the following parameters:
+        *♥*♥* 1. basis: a length-M list of square Qutip.Qobj 
+                        operators,
+        ====> Returns: a length-M list of real-valued numbers,
+                       where the i-th number is the following
+                       Frobenius norm
+                       
+                       || basis[i] - basis[i].dag() ||_F
+        
+        Warnings: (a). This module assumes that the basis contains
+                       square-matrices only. 
+                  (b). If a dictionary is received, this module will 
+                       extract its values, without changing the 
+                       original basis' type.
+    """
+    if type(basis) is dict:
+        basis_loc = basis.values()
+    return [null_matrix_check(op - op.dag()) for op in basis_loc]
 
 # In [2]:
 
@@ -42,7 +89,7 @@ def ev_checks(rho, check_positive_definite = False, tol = 1e-5):
             return False
         return True
     else:
-        ev_list = rho.eigenenerges()
+        ev_list = rho.eigenenergies()
         ev_list = sorted(rho.eigenenergies())
         min_ev = min(ev_list); ev_list = None
         if min_ev < 0:
@@ -87,36 +134,3 @@ def is_density_op(rho, verbose=False, critical=False, tol = 1e-5):
         assert not critical
         return False
     return True    
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
