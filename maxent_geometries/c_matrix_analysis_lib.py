@@ -7,6 +7,7 @@ import scipy.linalg as linalg
 
 import qutip as Qobj
 import a_quantum_stateology_lib as TpM 
+import b_quantum_geometries_lib as gij
 
 # In [2]:
 
@@ -48,11 +49,19 @@ def safe_expm_and_normalize(K: Qobj, return_free_energy = True, tol = 1e-5):
     assert TpM.is_density_op(sigma), "sigma is not a density op"
     return sigma, f
 
-
-    
-    
-    
-    
-    
-    
-    
+def build_Hierarchical_Basis(Hamiltonian, seed_operator, depth, tol = 1e-5, verbose = False):
+    assert linalg.norm(seed_operator - seed_operator.dag()), "Error: Seed operator not Hermitian"
+    HBasis = [seed_operator]
+    for i in range(depth):
+        local_op = 1j * gij.commutator(Hamiltonian, HBasis[i-1])
+        assert linalg.norm(local_op - local_op.dag()), "Error: Iterated Commutator not Hermitian at step ", i
+        norm = linalg.norm(local_op)
+        if norm > tol:
+            pass
+        else: 
+            local_op = None
+            if verbose:
+                print("     ###. HBasis terminated at step, " i)
+        Hbasis.append(local_op)
+        local_op = norm = None
+    return Hbasis   
