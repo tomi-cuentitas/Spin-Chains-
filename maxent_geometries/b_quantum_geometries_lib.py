@@ -56,12 +56,12 @@ def fetch_HS_inner_prod():
                         (b). An exception will be raised if the input operators have non-compatible
                              dimensions.
     """
-    return lambda op1, op2: .5 * (op1.dag() * op2).tr()
+    return lambda op1, op2: (op1.dag() * op2).tr()
 
 # In [3]:
 ## static and dynamical correlation product  
 
-def fetch_corr_scalar_prod(sigma:Qobj):
+def fetch_corr_inner_prod(sigma:Qobj):
     """
     This module instantiates a lambda function, associated to the (static or dynamical) correlation scalar product.
     This correlation scalar product is calculated for a specific sigma-state, belonging to the family of correlation scalar products. 
@@ -78,9 +78,9 @@ def fetch_corr_scalar_prod(sigma:Qobj):
 # In [4]:
 ## Kubo geometry 
 
-def Kubo_inner_prod_integrand(sigma):
+def fetch_kubo_int_inner_prod(sigma: Qobj):
     """
-    This module instantiates the (integrand) of a specific sigma-weighted inner product, belonging to the family of state-dependent KMB 
+    This module instantiates the (integrand) of a specific sigma-weighted inner product, belonging to the family of state-dependent KMB
     inner products, associated to the sigma state. This module takes as input:
         *♥*♥* 1. sigma: a qutip.Qobj, namely a quantum state. 
         
@@ -89,29 +89,31 @@ def Kubo_inner_prod_integrand(sigma):
               Warnings: (a). sigma must be a qutip.Qobj
                         (b). sigma must be a valid quantum state. 
                         
-    """
-    sigma = qutip.Qobj(sigma)    
-    evals, evecs = local_sigma.eigenstates()
-    return lambda op1, op2: sum(
-        (
-            np.conj((v2.dag() * op1 * v1).tr())
-            * ((v2.dag() * op2 * v1).tr())
-            * (p1 if p1 == p2 else (p1 - p2) / np.log(p1 / p2))
-        )
-        for p1, v1 in zip(evals, evecs) 
-        for p2, v2 in zip(evals, evecs)
-    )
-
-def fetch_Kubo_inner_prod(sigma):
-    """
     This module computes a KMB inner product function, associated to the sigma state, from its integral form. 
     This module takes as input:
         *♥*♥* 1. sigma: a qutip.Qobj, namely a quantum state. 
         
-        ====> Returns: a lambda function, given in terms of the state's eigenvalues and eigenvectors. 
-    
-    """
+        ====> Returns: a lambda function, given in terms of the state's eigenvalues and eigenvectors.
+    """  
+
     evals, evecs = sigma.eigenstates()
+
+    def return_func(op1, op2):
+        return 0.01 * sum(
+            (
+                np.conj((v2.dag() * op1 * v1).tr())
+                * ((v2.dag() * op2 * v1).tr())
+                * ((p1) ** (1.0 - tau))
+                * ((p1) ** (tau))
+            )
+            for p1, v1 in zip(evals, evecs)
+            for p2, v2 in zip(evals, evecs)
+            for tau in np.linspace(0.0, 1.0, 100)
+            if (p1 > 0.0 and p2 > 0.0)
+        )
+
+    return return_func
+
     return lambda op1, op2: 0.01 * sum(
         (
             np.conj((v2.dag() * op1 * v1).tr())
@@ -124,7 +126,8 @@ def fetch_Kubo_inner_prod(sigma):
         for tau in np.linspace(0, 1, 100)
     )
 
-def fetch_induced_geo_distance(innerprod):
+
+def fetch_induced_geometric_distance(innerprod):
     local_dop = op1 - op2
     return np.sqrt(innerprod(local_dop, local_dop))
     
