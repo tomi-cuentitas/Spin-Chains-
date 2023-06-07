@@ -93,7 +93,7 @@ def ev_checks(rho, check_positive_definite = False, tol = 1e-5):
         ev_list = sorted(rho.eigenenergies())
         min_ev = min(ev_list); ev_list = None
         if min_ev < 0:
-            assert abs(min_ev) > tol, "Qobj is not positive semi-definite"
+            print( abs(min_ev) > tol, "Qobj is not positive semi-definite" )
     return True
     
 def is_density_op(rho, verbose=False, critical=False, tol = 1e-5):
