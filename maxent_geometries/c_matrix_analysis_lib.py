@@ -28,7 +28,6 @@ def gram_matrix(basis: list, innnerprod: callable, as_qutip_qobj = True):
         Warnings: (*). all entries must be square matrices. 
     
     """
-    size = len(basis) 
     gram = np.array([[innerprod(op1, op2).round(14) for op2 in basis] for op1 in basis])
     if as_qutip_qobj:
         gram = qutip.Qobj(gram)
@@ -117,15 +116,15 @@ def safe_expm_and_normalize(K: Qobj, return_free_energy = True, tol = 1e-5):
     if return_free_energy: 
         f = -np.log(z) - e0;
     else:
-        f = None
+        pass
     assert TpM.is_density_op(sigma), "sigma is not a density op"
-    return sigma, f
+    return sigma
 
 def build_Hierarchical_Basis(Hamiltonian, seed_operator, depth, tol = 1e-5, verbose = False):
-    assert linalg.norm(seed_operator - seed_operator.dag()), "Error: Seed operator not Hermitian"
-    HBasis = [seed_operator]
-    for i in range(depth):
-        local_op = 1j * gij.commutator(Hamiltonian, HBasis[i-1])
+    assert linalg.norm(seed_operator - seed_operator.dag()) < tol, "Error: Seed operator not Hermitian"
+    hierarch_basis_local = [seed_operator]
+    for i in range(1, depth):
+        local_op = 1j * gij.commutator(Hamiltonian, hierarch_basis_local[i-1])
         assert linalg.norm(local_op - local_op.dag()) < tol, "Error: Iterated Commutator not Hermitian"
         norm = linalg.norm(local_op)
         if norm > tol:
@@ -134,8 +133,7 @@ def build_Hierarchical_Basis(Hamiltonian, seed_operator, depth, tol = 1e-5, verb
             local_op = None
             if verbose:
                 print("     ###. HBasis terminated at step ", i)
-        Hbasis.append(local_op)
+        hierarch_basis_local.append(local_op)
         local_op = norm = None
-    return Hbasis   
-        
+    return hierarch_basis_local   
     
