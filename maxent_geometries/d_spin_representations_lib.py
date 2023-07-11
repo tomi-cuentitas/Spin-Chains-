@@ -183,7 +183,7 @@ def classical_ops(Hamiltonian, size, op_list, centered_x_op = False):
     
     cl_ops = {"identity_op": identity_op}
     if centered_x_op:
-        cl_ops["x_op"] = sum((.5 + sz_list[k])*(k+1) for k in range(len(sz_list)))
+        cl_ops["x_op"] = sum((.5 + sz_list[k])*(2*k/(size+1) - 1) for k in range(len(sz_list)))
     else:
         cl_ops["x_op"] = sum((k-size/2)*(sz_list[k] + .5 * identity_op) for k in range(len(sz_list)))  # el -1 no va, no?
         
