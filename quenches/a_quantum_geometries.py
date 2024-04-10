@@ -198,53 +198,49 @@ def gram_matrix(basis: list, sp: Callable):
 
     return result.round(14)
 
-def orthogonalize_basis(basis: list, sp: Callable, idop: Qobj = None):
+def orthogonalize_basis(basis: List[Qobj], sp: Callable, idop: Qobj = None, verbose=True):
     if idop:
         idnorm_sq = sp(idop, idop)
         id_comp = [sp(idop, op) / idnorm_sq for op in basis]
         basis = ([idop * idnorm_sq**-0.5] +
-                 [op - la for la, op in zip(id_comp, basis)])
+                 [op - la * idop for la, op in zip(id_comp, basis)])  # Modified subtraction term
 
     gs = gram_matrix(basis, sp)
     evals, evecs = np.linalg.eigh(gs)
     evecs = [vec / np.linalg.norm(vec) for vec in evecs.transpose()]
-    return [
-        p ** (-0.5) * sum(c * op for c, op in zip(w, basis))
-        for p, w in zip(evals, evecs)
-        if p > 0.00001
-    ]
+    local_basis = [p ** (-0.5) * sum(c * op for c, op in zip(w, basis)) for p, w in zip(evals, evecs) if p > 0.00001]
+    return local_basis
 
-def build_HierarchicalBasis(generator: Qobj, seed_operator: Qobj, depth: int, args: dict, tol=1e-5, verbose=False):
+def build_HierarchicalBasis(generator: Qobj, seed_operator: Qobj, depth: int, tol=1e-5, verbose=False):
     assert check_hermitian(seed_operator), "Error: Seed operator not Hermitian"
-    hierarch_basis_local = [seed_operator]
-
-    if callable(generator):
-       avg_timespan = np.linspace(0, args['period'], int(args['period']*100))
-       generator_timet=[generator(t=ti, args=args) for ti in avg_timespan]
-       ith_commutator=lambda Ht,op: 1/args['period'] * sum(commutator(Hti, op) 
-                                                                        for Hti in generator_timet)  
-    else:
-        ith_commutator=lambda Ht,op: commutator(H, op)
-
-    for i in range(1, depth):
-        local_op = 1j * ith_commutator(Ht=generator, op=hierarch_basis_local[i-1])
+    hierarch_basis_local = [seed_operator]   
+    for i in range(1, depth + 1):  # Changed the range to start from 1
+        local_op = 1j * commutator(generator, hierarch_basis_local[i-1])
         assert linalg.norm(local_op - local_op.dag()) < tol, "Error: Iterated Commutator not Hermitian"
-        norm = linalg.norm(local_op)
+        norm = linalg.norm(local_op.full())
         if norm > tol:
-            pass
+            hierarch_basis_local.append(local_op)
         else: 
             local_op = None
             if verbose:
                 print("     ###. HBasis terminated at step ", i)
-        hierarch_basis_local.append(local_op)
-        local_op = norm = None
+            break  # Terminating the loop when norm falls below tolerance
     return hierarch_basis_local
-
+    
 def project_op(op: Qobj, orthogonal_basis: list, sp: Callable):
     return np.array([sp(op2, op) for op2 in orthogonal_basis])
 
 
 
 
-
-
+if False: 
+    if type(generator)==qutip.qobj.Qobj:
+        ith_commutator=lambda Ht,op: commutator(generator, op)
+    else:
+        try: 
+            avg_timespan=np.linspace(0, args['period'], int(args['period']*100))
+            generator_timet=[generator(t=ti, args=args) for ti in avg_timespan]
+            ith_commutator=lambda Ht,op: 1/args['period'] * sum(commutator(Hti, op) 
+                                                                        for Hti in generator_timet)  
+        except Error:
+            print(Error)
