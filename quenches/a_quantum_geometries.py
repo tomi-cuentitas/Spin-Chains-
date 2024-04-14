@@ -5,7 +5,7 @@ import scipy.linalg as linalg
 import qutip
 
 from qutip import Qobj
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple, Dict
 
 # In [2]:
 
@@ -182,7 +182,7 @@ def basis_hermitian_check(basis):
         basis_loc = basis.values()
     return [null_matrix_check(op - op.dag()) for op in basis_loc]
 
-def gram_matrix(basis: list, sp: Callable):
+def gram_matrix(basis: List[Qobj], sp: Callable):
     size = len(basis)
     result = np.zeros([size, size], dtype=float)
 
@@ -198,49 +198,52 @@ def gram_matrix(basis: list, sp: Callable):
 
     return result.round(14)
 
-def orthogonalize_basis(basis: List[Qobj], sp: Callable, idop: Qobj = None, verbose=True):
-    if idop:
-        idnorm_sq = sp(idop, idop)
-        id_comp = [sp(idop, op) / idnorm_sq for op in basis]
-        basis = ([idop * idnorm_sq**-0.5] +
-                 [op - la * idop for la, op in zip(id_comp, basis)])  # Modified subtraction term
+# In [6]:
 
-    gs = gram_matrix(basis, sp)
-    evals, evecs = np.linalg.eigh(gs)
-    evecs = [vec / np.linalg.norm(vec) for vec in evecs.transpose()]
-    local_basis = [p ** (-0.5) * sum(c * op for c, op in zip(w, basis)) for p, w in zip(evals, evecs) if p > 0.00001]
+def magnus_1t(generator, args):
+    period=args.get('period')
+    local_timespan_period=np.linspace(0,period, int(period)*100)
+    local_magnus=0
+    for t1 in local_timespan_period:
+        for t2 in local_timespan_period:
+            if t2 <= t1:
+                local_magnus+=commutator(generator(t=t1, args=args), generator(t=t2, args=args))
+
+    return 1/(2*1j*period)*local_magnus*(local_timespan_period[1]-local_timespan_period[0])
+
+def orthogonalize_basis(basis: List[Qobj], sp: callable, idop = None, tol = 1e-5):
+    local_basis = basis
+    if idop:
+        sqidnorm = sp(idop, idop)
+        id_comp = [sp(idop, op)/sqidnorm for op in basis]
+        local_basis = [idop * sqidnorm ** (-.5)] + [op - mu for mu, op in zip(id_comp, basis)]
+    
+    gram = gram_matrix(local_basis, sp)
+    evals, evecs = np.linalg.eigh(gram)
+    evecs = [vec/np.linalg.norm(vec) for vec in evecs.transpose()]
+    local_basis=[mu ** (-.5) * sum( c* op for c,op in zip(v, local_basis)) for mu, v in zip(evals, evecs) if mu>tol]
+
+    assert linalg.norm(gram_matrix(basis=local_basis, sp=sp) - np.identity(len(local_basis)))<tol, "Error: Basis not correctly orthogonalized"
     return local_basis
 
-def build_HierarchicalBasis(generator: Qobj, seed_operator: Qobj, depth: int, tol=1e-5, verbose=False):
-    assert check_hermitian(seed_operator), "Error: Seed operator not Hermitian"
-    hierarch_basis_local = [seed_operator]   
-    for i in range(1, depth + 1):  # Changed the range to start from 1
+def build_HierarchicalBasis(generator: Qobj, seed_operator: Qobj, depth: int, tol = 1e-5, verbose = False):
+    assert linalg.norm(seed_operator - seed_operator.dag()) < tol, "Error: Seed operator not Hermitian"
+    hierarch_basis_local = [seed_operator]
+    for i in range(1, depth):
         local_op = 1j * commutator(generator, hierarch_basis_local[i-1])
         assert linalg.norm(local_op - local_op.dag()) < tol, "Error: Iterated Commutator not Hermitian"
-        norm = linalg.norm(local_op.full())
+        norm = linalg.norm(local_op)
         if norm > tol:
-            hierarch_basis_local.append(local_op)
+            pass
         else: 
             local_op = None
             if verbose:
                 print("     ###. HBasis terminated at step ", i)
-            break  # Terminating the loop when norm falls below tolerance
-    return hierarch_basis_local
+        hierarch_basis_local.append(local_op)
+        local_op = norm = None
+    return hierarch_basis_local   
     
 def project_op(op: Qobj, orthogonal_basis: list, sp: Callable):
     return np.array([sp(op2, op) for op2 in orthogonal_basis])
 
 
-
-
-if False: 
-    if type(generator)==qutip.qobj.Qobj:
-        ith_commutator=lambda Ht,op: commutator(generator, op)
-    else:
-        try: 
-            avg_timespan=np.linspace(0, args['period'], int(args['period']*100))
-            generator_timet=[generator(t=ti, args=args) for ti in avg_timespan]
-            ith_commutator=lambda Ht,op: 1/args['period'] * sum(commutator(Hti, op) 
-                                                                        for Hti in generator_timet)  
-        except Error:
-            print(Error)
