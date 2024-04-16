@@ -202,7 +202,7 @@ def gram_matrix(basis: List[Qobj], sp: Callable):
 
 def magnus_1t(generator, args):
     period=args.get('period')
-    local_timespan_period=np.linspace(0,period, int(period)*100)
+    local_timespan_period=np.linspace(0,period, int(period)*50)
     local_magnus=0
     for t1 in local_timespan_period:
         for t2 in local_timespan_period:
@@ -229,7 +229,7 @@ def orthogonalize_basis(basis: List[Qobj], sp: callable, idop = None, tol = 1e-5
 def build_HierarchicalBasis(generator: Qobj, seed_operator: Qobj, depth: int, tol = 1e-5, verbose = False):
     assert linalg.norm(seed_operator - seed_operator.dag()) < tol, "Error: Seed operator not Hermitian"
     hierarch_basis_local = [seed_operator]
-    for i in range(1, depth):
+    for i in range(1, depth+1):
         local_op = 1j * commutator(generator, hierarch_basis_local[i-1])
         assert linalg.norm(local_op - local_op.dag()) < tol, "Error: Iterated Commutator not Hermitian"
         norm = linalg.norm(local_op)
