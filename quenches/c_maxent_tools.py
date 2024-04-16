@@ -64,16 +64,16 @@ def multiple_projections(exact_Ks: List[Qobj], exact_states: List[Qobj],
     res_sigmas = []
     res_Ks = []
 
+    if td_generator:
+        period=args.get('period')
+        local_avg_timespan=np.linspace(0,period, int(period)*10)
+        avg_generator=1/period*sum(generator(t=ti, args=args) for ti in local_avg_timespan)*(local_avg_timespan[1]-local_avg_timespan[0])
+        if magnus:
+            avg_generator+=gij.magnus_1t(generator=generator, args=args)
+    else:
+       avg_generator=generator
+        
     for d in depths:
-        if td_generator:
-            period=args.get('period')
-            local_avg_timespan=np.linspace(0,period, int(period)*10)
-            avg_generator=1/period*sum(generator(t=ti, args=args) for ti in local_avg_timespan)*(local_avg_timespan[1]-local_avg_timespan[0])
-            if magnus:
-                avg_generator+=gij.magnus_1t(generator=generator, args=args)
-        else:
-            avg_generator=generator
-             
         try:
             hb_basis_d = gij.build_HierarchicalBasis(generator=avg_generator, seed_operator=basis0[-1],
                                                      depth=d)
