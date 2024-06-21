@@ -157,6 +157,9 @@ def anticommutator(op1,op2) -> Qobj:
     
 def fetch_covar_scalar_product(sigma): 
     return lambda op1,op2: .5*(sigma * anticommutator(op1.dag(), op2)).tr()
+    
+def fetch_op_norm(sp: Callable):
+    return lambda op: sp(op,op)
 
 # In [5]: 
     
@@ -204,20 +207,14 @@ def gram_matrix(basis: List[Qobj], sp: Callable):
 
 # In [6]:
 
-def orthogonalize_basis(basis: List[Qobj], sp: callable, idop = None, tol = 1e-5):
-    local_basis = basis
-    if idop:
-        sqidnorm = sp(idop, idop)
-        id_comp = [sp(idop, op)/sqidnorm for op in basis]
-        local_basis = [idop * sqidnorm ** (-.5)] + [op - mu for mu, op in zip(id_comp, basis)]
+def orthogonalize_basis(basis: List[Qobj], sp: callable, tol = 1e-5):
+    local_basis=basis
+    inv_gram_matrix=linalg.inv(gram_matrix(basis=local_basis, sp=sp))
+    orth_basis=[sum(linalg.sqrtm(inv_gram_matrix)[j][i] * local_basis[j] for j in range(len(local_basis)))
+                                                                         for i in range(len(local_basis))]
     
-    gram = gram_matrix(local_basis, sp)
-    evals, evecs = np.linalg.eigh(gram)
-    evecs = [vec/np.linalg.norm(vec) for vec in evecs.transpose()]
-    local_basis=[mu ** (-.5) * sum( c* op for c,op in zip(v, local_basis)) for mu, v in zip(evals, evecs) if mu>tol]
-    
-    assert linalg.norm(gram_matrix(basis=local_basis, sp=sp) - np.identity(len(local_basis)))<tol, "Error: Basis not correctly orthogonalized"
-    return local_basis
+    assert( linalg.norm(gram_matrix(basis=orth_basis, sp=sp) - np.identity(len(orth_basis))) < tol), "Error: Basis not correctly orthogonalized"
+    return orth_basis
 
 def proj_op(K: Qobj, basis: List[Qobj], sp: Callable):
     orth_basis=orthogonalize_basis(basis=basis, sp=sp)
