@@ -251,7 +251,37 @@ def Hij_tensor(basis: List[Qobj], sp: Callable, generator: Qobj):
                             for op2 in basis] for op1 in basis])
     return np.real(local_Hij)
 
-# In [8]:
+# In [8]: Lieb-Robinson-aided Dynamics (Adaptive Max-Ent evolutions)
+
+def slice_times(tlist: np.array, tcuts: List[float]):
+    sliced_times=[np.array([t for t in tlist if t <= tcuts[1]])]
+    for d in range(2,len(tcuts)):
+        local_tlist=np.array([t for t in tlist if t > tcuts[d-1] and t <= tcuts[d]])
+        sliced_times.append(local_tlist) 
+        
+    if tlist[-1] > tcuts[-1]:
+        sliced_times.append(np.array([t for t in tlist if t > tcuts[-1]]))
+    return sliced_times
+        
+    ## bounds obtained from second and first papers.
+m_th_partial_sum= lambda phi,m=int: sum(abs(phi_n)**2 for phi_n in phi[-m:])
+
+def bound_integral_eq(sigmas: List[Qobj], Ks: List[Qobj], tlist: np.array, generator: Qobj, 
+                      normalization=True):
+    sp_list_local=[fetch_covar_scalar_product(sigma=sigma_timeti) for sigma_timeti in sigmas]
+    sp_norm_list_local=[fetch_op_norm(sp=sp_local) for sp_local in sp_list_local]
+
+    integral_bound=[.0]
+    for i in sigmas:
+        index_local=list(sigmas).index(i)
+        local_value=integral_bound[-1]
+        local_value+=(tlist[1]-tlist[0])*sp_norm_list_local[index_local](commutator(generator, Ks[index_local]))
+        if normalization:
+            local_value=local_value/sp_norm_list_local[index_local](Ks[index_local])
+        integral_bound.append(local_value)
+    return integral_bound
+
+# In [9]: Floquet 
 
 def magnus_1t(generator, args):
     period=args.get('period')
@@ -268,4 +298,5 @@ def magnus_2t(generator, args):
             if tprime <= t:  
                 local_magnus+=commutator(generator(t=t, args=args), generator(t=tprime, args=args))
     return 1/(2*1j*period)*local_magnus*(local_timespan_period[1]-local_timespan_period[0])**2
-    
+
+# In [9]:
